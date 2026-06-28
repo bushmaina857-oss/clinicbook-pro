@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ClinicBook Pro — Sign Up</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #F7F9FB; --white: #fff; --navy: #0D1B2A;
+      --teal: #0A7EA4; --teal-light: #E6F4F9;
+      --text: #1A2636; --muted: #6B7A8D;
+      --border: #DDE3EA; --radius: 14px;
+      --card-shadow: 0 2px 12px rgba(13,27,42,0.07);
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    header {
+      background: var(--navy); padding: 0 24px;
+      display: flex; align-items: center; justify-content: center;
+      height: 60px;
+    }
+    .logo { font-family: 'DM Serif Display', serif; font-size: 22px; color: #fff; letter-spacing: -0.5px; }
+    .logo span { color: var(--teal); }
+
+    .hero { background: var(--navy); padding: 8px 24px 36px; text-align: center; }
+    .hero h1 { font-family: 'DM Serif Display', serif; font-size: 24px; color: #fff; margin-bottom: 8px; }
+    .hero p { font-size: 13px; color: rgba(255,255,255,0.55); max-width: 320px; margin: 0 auto; line-height: 1.6; }
+
+    .container { max-width: 480px; margin: 0 auto; padding: 0 20px 40px; }
+
+    /* PATH SELECTOR */
+    .path-tabs {
+      display: flex; gap: 8px; margin: -20px 0 20px;
+      background: var(--white); border-radius: 14px; padding: 6px;
+      box-shadow: var(--card-shadow);
+    }
+    .path-tab {
+      flex: 1; padding: 12px 8px; border-radius: 10px; border: none;
+      background: none; font-family: 'Inter', sans-serif; font-size: 13px;
+      font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.18s;
+    }
+    .path-tab.active { background: var(--teal); color: #fff; }
+
+    /* FORM CARD */
+    .form-card {
+      background: var(--white); border-radius: var(--radius);
+      box-shadow: var(--card-shadow); padding: 22px; display: none;
+    }
+    .form-card.visible { display: block; }
+
+    .form-card-title { font-family: 'DM Serif Display', serif; font-size: 19px; color: var(--text); margin-bottom: 4px; }
+    .form-card-sub { font-size: 13px; color: var(--muted); margin-bottom: 20px; line-height: 1.5; }
+
+    .form-group { margin-bottom: 15px; }
+    .form-group label {
+      display: block; font-size: 12px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;
+    }
+    .form-group input, .form-group select, .form-group textarea {
+      width: 100%; padding: 12px 14px; border-radius: 10px;
+      border: 1.5px solid var(--border); font-size: 14px;
+      font-family: 'Inter', sans-serif; color: var(--text);
+      outline: none; transition: border-color 0.15s; background: var(--bg);
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--teal); background: #fff; }
+    .form-group textarea { resize: none; height: 70px; }
+    .form-hint { font-size: 12px; color: var(--muted); margin-top: 5px; line-height: 1.4; }
+
+    .org-search-results {
+      margin-top: 8px; border: 1.5px solid var(--border); border-radius: 10px;
+      max-height: 180px; overflow-y: auto; display: none;
+    }
+    .org-search-results.visible { display: block; }
+    .org-result-item {
+      padding: 10px 14px; cursor: pointer; border-bottom: 1px solid var(--border);
+      font-size: 13px; transition: background 0.15s;
+    }
+    .org-result-item:last-child { border-bottom: none; }
+    .org-result-item:hover { background: var(--teal-light); }
+    .org-result-item.selected { background: var(--teal-light); border-left: 3px solid var(--teal); }
+    .org-result-name { font-weight: 600; color: var(--text); }
+    .org-result-type { font-size: 11px; color: var(--muted); text-transform: capitalize; }
+
+    .submit-btn {
+      width: 100%; padding: 14px; border-radius: 10px; border: none;
+      background: var(--teal); color: #fff; font-size: 15px; font-weight: 600;
+      font-family: 'Inter', sans-serif; cursor: pointer; transition: background 0.15s;
+      margin-top: 6px;
+    }
+    .submit-btn:hover { background: #086988; }
+    .submit-btn:disabled { background: var(--muted); cursor: not-allowed; }
+
+    .error-msg {
+      background: #FEE2E2; border: 1.5px solid #FCA5A5; border-radius: 10px;
+      padding: 12px 14px; font-size: 13px; color: #991B1B;
+      margin-bottom: 14px; display: none;
+    }
+    .success-box {
+      background: #DCFCE7; border: 1.5px solid #86EFAC; border-radius: var(--radius);
+      padding: 24px; text-align: center; display: none;
+    }
+    .success-box.visible { display: block; }
+    .success-icon { font-size: 36px; margin-bottom: 10px; }
+    .success-box h3 { font-size: 17px; color: #15803D; margin-bottom: 8px; }
+    .success-box p { font-size: 13px; color: #16A34A; line-height: 1.6; }
+
+    .login-link { text-align: center; margin-top: 18px; font-size: 13px; color: var(--muted); }
+    .login-link a { color: var(--teal); font-weight: 600; text-decoration: none; }
+
+    .role-badge {
+      display: inline-block; font-size: 11px; font-weight: 600; padding: 4px 10px;
+      border-radius: 50px; text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+    .role-badge.admin { background: var(--teal-light); color: var(--teal); }
+    .role-badge.doctor { background: #FEF3C7; color: #D97706; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">Clinic<span>Book</span> <span style="color:#9CA3AF;font-size:13px;">PRO</span></div>
+  </header>
+
+  <div class="hero">
+    <h1>Set up your clinic on ClinicBook</h1>
+    <p>Create a new organization, or join one that's already using ClinicBook Pro.</p>
+  </div>
+
+  <div class="container">
+    <div class="path-tabs">
+      <button class="path-tab active" id="tabCreate">Create Organization</button>
+      <button class="path-tab" id="tabJoin">Join Existing Org</button>
+    </div>
+
+    <!-- CREATE ORG FORM -->
+    <div class="form-card visible" id="createForm">
+      <span class="role-badge admin">You'll be the Admin</span>
+      <div class="form-card-title">Set up your organization</div>
+      <div class="form-card-sub">For a solo practice, just use your own name as the organization name. For a clinic or hospital, use its official name.</div>
+
+      <div class="error-msg" id="createError"></div>
+
+      <div class="form-group">
+        <label>Your Email</label>
+        <input type="email" id="createEmail" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="createPassword" placeholder="Create a password" />
+      </div>
+      <div class="form-group">
+        <label>Your Full Name</label>
+        <input type="text" id="createFullName" placeholder="Dr. Jane Smith" />
+      </div>
+      <div class="form-group">
+        <label>Organization Name</label>
+        <input type="text" id="orgName" placeholder="e.g. Sunrise Medical Centre" />
+      </div>
+      <div class="form-group">
+        <label>Organization Type</label>
+        <select id="orgType">
+          <option value="solo">Solo Practice (just me)</option>
+          <option value="clinic">Clinic (a few doctors)</option>
+          <option value="hospital">Hospital (multiple departments)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Phone Number</label>
+        <input type="tel" id="orgPhone" placeholder="e.g. +213 555 000 111" />
+      </div>
+
+      <button class="submit-btn" id="createBtn">Create Organization &amp; Sign Up</button>
+    </div>
+
+    <!-- JOIN ORG FORM -->
+    <div class="form-card" id="joinForm">
+      <span class="role-badge doctor">You'll join as a Doctor</span>
+      <div class="form-card-title">Join an existing organization</div>
+      <div class="form-card-sub">Search for your clinic or hospital below. The admin will need to approve your request before you can access the dashboard.</div>
+
+      <div class="error-msg" id="joinError"></div>
+
+      <div class="form-group">
+        <label>Search Organization</label>
+        <input type="text" id="orgSearchInput" placeholder="Type clinic or hospital name..." />
+        <div class="org-search-results" id="orgResults"></div>
+        <div class="form-hint" id="selectedOrgHint"></div>
+      </div>
+
+      <div class="form-group">
+        <label>Your Email</label>
+        <input type="email" id="joinEmail" placeholder="you@example.com" />
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="joinPassword" placeholder="Create a password" />
+      </div>
+      <div class="form-group">
+        <label>Your Full Name</label>
+        <input type="text" id="joinFullName" placeholder="Dr. Jane Smith" />
+      </div>
+      <div class="form-group">
+        <label>Your Specialty</label>
+        <input type="text" id="joinSpecialty" placeholder="e.g. Dermatologist, Pediatrician" />
+      </div>
+      <div class="form-group">
+        <label>Phone Number</label>
+        <input type="tel" id="joinPhone" placeholder="e.g. +213 555 000 111" />
+      </div>
+
+      <button class="submit-btn" id="joinBtn" disabled>Select an organization first</button>
+    </div>
+
+    <!-- SUCCESS STATES -->
+    <div class="success-box" id="createSuccess">
+      <div class="success-icon">&#9989;</div>
+      <h3>Organization created!</h3>
+      <p id="createSuccessMsg"></p>
+    </div>
+
+    <div class="success-box" id="joinSuccess">
+      <div class="success-icon">&#8987;</div>
+      <h3>Request sent!</h3>
+      <p id="joinSuccessMsg"></p>
+    </div>
+
+    <div class="login-link">Already have an account? <a href="staff-login.html">Sign in</a></div>
+  </div>
+
+  <script>
+    var SUPABASE_URL = 'https://iyxumauddvmdfbukrzaa.supabase.co';
+    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5eHVtYXVkZHZtZGZidWtyemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NDk5MTUsImV4cCI6MjA5ODIyNTkxNX0.5B2LHcgRdrRrJbrjKWbK-kqUUlHnws7nxl1fNeZrvHE';
+
+    var headers = {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+      'Content-Type': 'application/json'
+    };
+
+    var selectedOrg = null;
+
+    // Tab switching
+    document.getElementById('tabCreate').addEventListener('click', function() {
+      document.getElementById('tabCreate').classList.add('active');
+      document.getElementById('tabJoin').classList.remove('active');
+      document.getElementById('createForm').classList.add('visible');
+      document.getElementById('joinForm').classList.remove('visible');
+    });
+    document.getElementById('tabJoin').addEventListener('click', function() {
+      document.getElementById('tabJoin').classList.add('active');
+      document.getElementById('tabCreate').classList.remove('active');
+      document.getElementById('joinForm').classList.add('visible');
+      document.getElementById('createForm').classList.remove('visible');
+    });
+
+    function showError(elId, msg) {
+      var el = document.getElementById(elId);
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+    function hideError(elId) {
+      document.getElementById(elId).style.display = 'none';
+    }
+
+    // ---------- CREATE ORGANIZATION FLOW ----------
+    function signUpUser(email, password, redirectTo) {
+      return fetch(SUPABASE_URL + '/auth/v1/signup', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ email: email, password: password, options: { emailRedirectTo: redirectTo } })
+      }).then(function(res) {
+        return res.json().then(function(data) { return { ok: res.ok, data: data }; });
+      }).then(function(result) {
+        if (!result.ok) throw new Error(result.data.msg || result.data.error_description || 'Sign up failed');
+        return result.data;
+      });
+    }
+
+    document.getElementById('createBtn').addEventListener('click', function() {
+      var email = document.getElementById('createEmail').value.trim();
+      var password = document.getElementById('createPassword').value;
+      var fullName = document.getElementById('createFullName').value.trim();
+      var orgName = document.getElementById('orgName').value.trim();
+      var orgType = document.getElementById('orgType').value;
+      var orgPhone = document.getElementById('orgPhone').value.trim();
+      var btn = document.getElementById('createBtn');
+
+      hideError('createError');
+
+      if (!email || !password || !fullName || !orgName) {
+        showError('createError', 'Please fill in all required fields.');
+        return;
+      }
+      if (password.length < 6) {
+        showError('createError', 'Password must be at least 6 characters.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Creating...';
+
+      var redirectUrl = window.location.origin + window.location.pathname.replace('signup.html', 'confirm-callback.html');
+
+      signUpUser(email, password, redirectUrl).then(function(authData) {
+        // Store pending setup details in localStorage \u2014 picked up by confirm-callback.html
+        // after the user clicks the email confirmation link and is authenticated.
+        localStorage.setItem('clinicbook_pending_signup', JSON.stringify({
+          type: 'create_org',
+          fullName: fullName,
+          orgName: orgName,
+          orgType: orgType,
+          orgPhone: orgPhone,
+          email: email
+        }));
+
+        document.getElementById('createForm').style.display = 'none';
+        document.querySelector('.path-tabs').style.display = 'none';
+        var successBox = document.getElementById('createSuccess');
+        successBox.classList.add('visible');
+        document.getElementById('createSuccessMsg').textContent =
+          'We sent a confirmation link to ' + email + '. Click it to activate your account \u2014 your organization "' + orgName + '" will be set up automatically once confirmed.';
+      }).catch(function(err) {
+        showError('createError', err.message);
+        btn.disabled = false;
+        btn.textContent = 'Create Organization & Sign Up';
+      });
+    });
+
+    // ---------- JOIN ORGANIZATION FLOW ----------
+    var searchTimeout = null;
+    document.getElementById('orgSearchInput').addEventListener('input', function() {
+      var query = this.value.trim();
+      clearTimeout(searchTimeout);
+      selectedOrg = null;
+      updateJoinButton();
+
+      if (query.length < 2) {
+        document.getElementById('orgResults').classList.remove('visible');
+        return;
+      }
+
+      searchTimeout = setTimeout(function() {
+        fetch(SUPABASE_URL + '/rest/v1/organizations?name=ilike.' + encodeURIComponent(query) + '&select=id,name,type&limit=8', {
+          headers: headers
+        }).then(function(res) { return res.json(); })
+        .then(function(orgs) {
+          var resultsEl = document.getElementById('orgResults');
+          resultsEl.innerHTML = '';
+          if (!orgs.length) {
+            resultsEl.classList.remove('visible');
+            return;
+          }
+          orgs.forEach(function(org) {
+            var item = document.createElement('div');
+            item.className = 'org-result-item';
+            var nameEl = document.createElement('div');
+            nameEl.className = 'org-result-name';
+            nameEl.textContent = org.name;
+            var typeEl = document.createElement('div');
+            typeEl.className = 'org-result-type';
+            typeEl.textContent = org.type;
+            item.appendChild(nameEl);
+            item.appendChild(typeEl);
+            item.addEventListener('click', function() {
+              selectedOrg = org;
+              document.getElementById('orgSearchInput').value = org.name;
+              document.getElementById('selectedOrgHint').textContent = '\u2713 Selected: ' + org.name;
+              resultsEl.classList.remove('visible');
+              updateJoinButton();
+            });
+            resultsEl.appendChild(item);
+          });
+          resultsEl.classList.add('visible');
+        }).catch(function(err) { console.error(err); });
+      }, 300);
+    });
+
+    function updateJoinButton() {
+      var btn = document.getElementById('joinBtn');
+      if (selectedOrg) {
+        btn.disabled = false;
+        btn.textContent = 'Request to Join & Sign Up';
+      } else {
+        btn.disabled = true;
+        btn.textContent = 'Select an organization first';
+      }
+    }
+
+    document.getElementById('joinBtn').addEventListener('click', function() {
+      var email = document.getElementById('joinEmail').value.trim();
+      var password = document.getElementById('joinPassword').value;
+      var fullName = document.getElementById('joinFullName').value.trim();
+      var specialty = document.getElementById('joinSpecialty').value.trim();
+      var phone = document.getElementById('joinPhone').value.trim();
+      var btn = document.getElementById('joinBtn');
+
+      hideError('joinError');
+
+      if (!selectedOrg) { showError('joinError', 'Please select an organization first.'); return; }
+      if (!email || !password || !fullName || !specialty) {
+        showError('joinError', 'Please fill in all required fields.');
+        return;
+      }
+      if (password.length < 6) {
+        showError('joinError', 'Password must be at least 6 characters.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Sending request...';
+
+      var redirectUrl = window.location.origin + window.location.pathname.replace('signup.html', 'confirm-callback.html');
+
+      signUpUser(email, password, redirectUrl).then(function(authData) {
+        localStorage.setItem('clinicbook_pending_signup', JSON.stringify({
+          type: 'join_org',
+          fullName: fullName,
+          specialty: specialty,
+          phone: phone,
+          orgId: selectedOrg.id,
+          orgName: selectedOrg.name,
+          email: email
+        }));
+
+        document.getElementById('joinForm').style.display = 'none';
+        document.querySelector('.path-tabs').style.display = 'none';
+        var successBox = document.getElementById('joinSuccess');
+        successBox.classList.add('visible');
+        document.getElementById('joinSuccessMsg').textContent =
+          'We sent a confirmation link to ' + email + '. Click it first \u2014 then your request to join "' + selectedOrg.name + '" will be sent to the admin automatically.';
+      }).catch(function(err) {
+        showError('joinError', err.message);
+        btn.disabled = false;
+        btn.textContent = 'Request to Join & Sign Up';
+      });
+    });
+
+    // Hide search results when clicking elsewhere
+    document.addEventListener('click', function(e) {
+      if (!e.target.closest('.form-group')) {
+        document.getElementById('orgResults').classList.remove('visible');
+      }
+    });
+  </script>
+</body>
+</html>
