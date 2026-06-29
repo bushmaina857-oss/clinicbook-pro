@@ -30,7 +30,6 @@
 
     .container { max-width: 480px; margin: 0 auto; padding: 0 20px 40px; }
 
-    /* PATH SELECTOR */
     .path-tabs {
       display: flex; gap: 8px; margin: -20px 0 20px;
       background: var(--white); border-radius: 14px; padding: 6px;
@@ -43,7 +42,6 @@
     }
     .path-tab.active { background: var(--teal); color: #fff; }
 
-    /* FORM CARD */
     .form-card {
       background: var(--white); border-radius: var(--radius);
       box-shadow: var(--card-shadow); padding: 22px; display: none;
@@ -79,7 +77,6 @@
     }
     .org-result-item:last-child { border-bottom: none; }
     .org-result-item:hover { background: var(--teal-light); }
-    .org-result-item.selected { background: var(--teal-light); border-left: 3px solid var(--teal); }
     .org-result-name { font-weight: 600; color: var(--text); }
     .org-result-type { font-size: 11px; color: var(--muted); text-transform: capitalize; }
 
@@ -91,6 +88,15 @@
     }
     .submit-btn:hover { background: #086988; }
     .submit-btn:disabled { background: var(--muted); cursor: not-allowed; }
+
+    .secondary-btn {
+      width: 100%; padding: 12px; border-radius: 10px; border: 1.5px solid var(--border);
+      background: var(--white); color: var(--muted); font-size: 13px; font-weight: 600;
+      font-family: 'Inter', sans-serif; cursor: pointer; transition: all 0.15s;
+      margin-top: 10px;
+    }
+    .secondary-btn:hover { border-color: var(--teal); color: var(--teal); }
+    .secondary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .error-msg {
       background: #FEE2E2; border: 1.5px solid #FCA5A5; border-radius: 10px;
@@ -116,6 +122,19 @@
     }
     .role-badge.admin { background: var(--teal-light); color: var(--teal); }
     .role-badge.doctor { background: #FEF3C7; color: #D97706; }
+
+    /* OTP INPUT */
+    .otp-input {
+      width: 100%; padding: 16px 14px; border-radius: 10px;
+      border: 1.5px solid var(--border); font-size: 20px; letter-spacing: 5px;
+      text-align: center; font-family: 'Inter', sans-serif; font-weight: 600;
+      color: var(--text); outline: none; background: var(--bg);
+    }
+    .otp-input:focus { border-color: var(--teal); background: #fff; }
+    .otp-email-display {
+      text-align: center; font-size: 14px; font-weight: 600; color: var(--teal);
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 <body>
@@ -130,7 +149,7 @@
   </div>
 
   <div class="container">
-    <div class="path-tabs">
+    <div class="path-tabs" id="pathTabs">
       <button class="path-tab active" id="tabCreate">Create Organization</button>
       <button class="path-tab" id="tabJoin">Join Existing Org</button>
     </div>
@@ -172,7 +191,7 @@
         <input type="tel" id="orgPhone" placeholder="e.g. +213 555 000 111" />
       </div>
 
-      <button class="submit-btn" id="createBtn">Create Organization &amp; Sign Up</button>
+      <button class="submit-btn" id="createBtn">Create Organization & Sign Up</button>
     </div>
 
     <!-- JOIN ORG FORM -->
@@ -214,6 +233,23 @@
       <button class="submit-btn" id="joinBtn" disabled>Select an organization first</button>
     </div>
 
+    <!-- OTP VERIFICATION CARD -->
+    <div class="form-card" id="otpForm">
+      <div class="form-card-title">Enter your verification code</div>
+      <div class="otp-email-display" id="otpEmailDisplay"></div>
+      <div class="form-card-sub">We sent a 6-digit code to this email. Enter it below to finish setting up your account.</div>
+
+      <div class="error-msg" id="otpError"></div>
+
+      <div class="form-group">
+        <label>Verification Code</label>
+        <input type="text" id="otpCodeInput" class="otp-input" maxlength="8" placeholder="00000000" inputmode="numeric" autocomplete="one-time-code" />
+      </div>
+
+      <button class="submit-btn" id="otpVerifyBtn">Verify & Continue</button>
+      <button class="secondary-btn" id="otpResendBtn">Resend code</button>
+    </div>
+
     <!-- SUCCESS STATES -->
     <div class="success-box" id="createSuccess">
       <div class="success-icon">&#9989;</div>
@@ -227,7 +263,7 @@
       <p id="joinSuccessMsg"></p>
     </div>
 
-    <div class="login-link">Already have an account? <a href="staff-login.html">Sign in</a></div>
+    <div class="login-link" id="loginLink">Already have an account? <a href="staff-login.html">Sign in</a></div>
   </div>
 
   <script>
@@ -241,6 +277,7 @@
     };
 
     var selectedOrg = null;
+    var pendingSetup = null; // holds form data while we wait for OTP verification
 
     // Tab switching
     document.getElementById('tabCreate').addEventListener('click', function() {
@@ -265,12 +302,12 @@
       document.getElementById(elId).style.display = 'none';
     }
 
-    // ---------- CREATE ORGANIZATION FLOW ----------
-    function signUpUser(email, password, redirectTo) {
+    // ---------- SIGN UP (creates user, triggers OTP email) ----------
+    function signUpUser(email, password) {
       return fetch(SUPABASE_URL + '/auth/v1/signup', {
         method: 'POST',
         headers: headers,
-        body: JSON.stringify({ email: email, password: password, options: { emailRedirectTo: redirectTo } })
+        body: JSON.stringify({ email: email, password: password })
       }).then(function(res) {
         return res.json().then(function(data) { return { ok: res.ok, data: data }; });
       }).then(function(result) {
@@ -279,6 +316,42 @@
       });
     }
 
+    function verifyOtp(email, token) {
+      return fetch(SUPABASE_URL + '/auth/v1/verify', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ email: email, token: token, type: 'signup' })
+      }).then(function(res) {
+        return res.json().then(function(data) { return { ok: res.ok, data: data }; });
+      }).then(function(result) {
+        if (!result.ok) throw new Error(result.data.msg || result.data.error_description || 'Invalid or expired code. Please try again.');
+        return result.data;
+      });
+    }
+
+    function resendOtp(email) {
+      return fetch(SUPABASE_URL + '/auth/v1/resend', {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ type: 'signup', email: email })
+      }).then(function(res) {
+        if (!res.ok) return res.json().then(function(e) { throw new Error(e.msg || 'Could not resend code'); });
+        return res.json();
+      });
+    }
+
+    function showOtpScreen(email) {
+      document.getElementById('createForm').classList.remove('visible');
+      document.getElementById('joinForm').classList.remove('visible');
+      document.getElementById('pathTabs').style.display = 'none';
+      document.getElementById('loginLink').style.display = 'none';
+      document.getElementById('otpEmailDisplay').textContent = email;
+      document.getElementById('otpForm').classList.add('visible');
+      document.getElementById('otpCodeInput').value = '';
+      document.getElementById('otpCodeInput').focus();
+    }
+
+    // ---------- CREATE ORGANIZATION FLOW ----------
     document.getElementById('createBtn').addEventListener('click', function() {
       var email = document.getElementById('createEmail').value.trim();
       var password = document.getElementById('createPassword').value;
@@ -302,26 +375,16 @@
       btn.disabled = true;
       btn.textContent = 'Creating...';
 
-      var redirectUrl = window.location.origin + window.location.pathname.replace('signup.html', 'confirm-callback.html');
-
-      signUpUser(email, password, redirectUrl).then(function(authData) {
-        // Store pending setup details in localStorage \u2014 picked up by confirm-callback.html
-        // after the user clicks the email confirmation link and is authenticated.
-        localStorage.setItem('clinicbook_pending_signup', JSON.stringify({
+      signUpUser(email, password).then(function() {
+        pendingSetup = {
           type: 'create_org',
+          email: email,
           fullName: fullName,
           orgName: orgName,
           orgType: orgType,
-          orgPhone: orgPhone,
-          email: email
-        }));
-
-        document.getElementById('createForm').style.display = 'none';
-        document.querySelector('.path-tabs').style.display = 'none';
-        var successBox = document.getElementById('createSuccess');
-        successBox.classList.add('visible');
-        document.getElementById('createSuccessMsg').textContent =
-          'We sent a confirmation link to ' + email + '. Click it to activate your account \u2014 your organization "' + orgName + '" will be set up automatically once confirmed.';
+          orgPhone: orgPhone
+        };
+        showOtpScreen(email);
       }).catch(function(err) {
         showError('createError', err.message);
         btn.disabled = false;
@@ -343,7 +406,7 @@
       }
 
       searchTimeout = setTimeout(function() {
-        fetch(SUPABASE_URL + '/rest/v1/organizations?name=ilike.' + encodeURIComponent(query) + '&select=id,name,type&limit=8', {
+        fetch(SUPABASE_URL + '/rest/v1/organizations?name=ilike.*' + encodeURIComponent(query) + '*&select=id,name,type&limit=8', {
           headers: headers
         }).then(function(res) { return res.json(); })
         .then(function(orgs) {
@@ -412,30 +475,131 @@
       btn.disabled = true;
       btn.textContent = 'Sending request...';
 
-      var redirectUrl = window.location.origin + window.location.pathname.replace('signup.html', 'confirm-callback.html');
-
-      signUpUser(email, password, redirectUrl).then(function(authData) {
-        localStorage.setItem('clinicbook_pending_signup', JSON.stringify({
+      signUpUser(email, password).then(function() {
+        pendingSetup = {
           type: 'join_org',
+          email: email,
           fullName: fullName,
           specialty: specialty,
           phone: phone,
           orgId: selectedOrg.id,
-          orgName: selectedOrg.name,
-          email: email
-        }));
-
-        document.getElementById('joinForm').style.display = 'none';
-        document.querySelector('.path-tabs').style.display = 'none';
-        var successBox = document.getElementById('joinSuccess');
-        successBox.classList.add('visible');
-        document.getElementById('joinSuccessMsg').textContent =
-          'We sent a confirmation link to ' + email + '. Click it first \u2014 then your request to join "' + selectedOrg.name + '" will be sent to the admin automatically.';
+          orgName: selectedOrg.name
+        };
+        showOtpScreen(email);
       }).catch(function(err) {
         showError('joinError', err.message);
         btn.disabled = false;
         btn.textContent = 'Request to Join & Sign Up';
       });
+    });
+
+    // ---------- FINALIZE SETUP AFTER OTP VERIFIED ----------
+    function createOrganization(authToken, name, type, phone) {
+      var h = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+      return fetch(SUPABASE_URL + '/rest/v1/organizations', {
+        method: 'POST', headers: h,
+        body: JSON.stringify({ name: name, type: type, phone: phone })
+      }).then(function(res) {
+        if (!res.ok) return res.json().then(function(e) { throw new Error(e.message || 'Failed to create organization'); });
+        return res.json();
+      }).then(function(data) { return data[0]; });
+    }
+
+    function createStaffRecord(authToken, userId, orgId, fullName, phone, role) {
+      var h = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' };
+      return fetch(SUPABASE_URL + '/rest/v1/staff', {
+        method: 'POST', headers: h,
+        body: JSON.stringify({ user_id: userId, org_id: orgId, role: role, full_name: fullName, phone: phone, is_active: true })
+      }).then(function(res) {
+        if (!res.ok) return res.json().then(function(e) { throw new Error(e.message || 'Failed to create staff record'); });
+        return res.json();
+      });
+    }
+
+    function createJoinRequest(authToken, userId, orgId, fullName, specialty, phone) {
+      var h = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json' };
+      return fetch(SUPABASE_URL + '/rest/v1/join_requests', {
+        method: 'POST', headers: h,
+        body: JSON.stringify({ user_id: userId, org_id: orgId, full_name: fullName, specialty: specialty, phone: phone, status: 'pending' })
+      }).then(function(res) {
+        if (!res.ok) return res.json().then(function(e) { throw new Error(e.message || 'Failed to send join request'); });
+        return res.json();
+      });
+    }
+
+    document.getElementById('otpVerifyBtn').addEventListener('click', function() {
+      var code = document.getElementById('otpCodeInput').value.trim();
+      var btn = document.getElementById('otpVerifyBtn');
+
+      hideError('otpError');
+
+      if (!code || code.length !== 8) {
+        showError('otpError', 'Please enter the 6-digit code.');
+        return;
+      }
+      if (!pendingSetup) {
+        showError('otpError', 'Something went wrong. Please refresh and sign up again.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Verifying...';
+
+      verifyOtp(pendingSetup.email, code).then(function(session) {
+        var accessToken = session.access_token;
+        var userId = session.user.id;
+
+        if (pendingSetup.type === 'create_org') {
+          return createOrganization(accessToken, pendingSetup.orgName, pendingSetup.orgType, pendingSetup.orgPhone).then(function(org) {
+            return createStaffRecord(accessToken, userId, org.id, pendingSetup.fullName, pendingSetup.orgPhone, 'admin');
+          }).then(function() {
+            document.getElementById('otpForm').classList.remove('visible');
+            var successBox = document.getElementById('createSuccess');
+            successBox.classList.add('visible');
+            document.getElementById('createSuccessMsg').textContent =
+              'Your organization "' + pendingSetup.orgName + '" is ready. You can now sign in as the admin.';
+          });
+        } else if (pendingSetup.type === 'join_org') {
+          return createJoinRequest(accessToken, userId, pendingSetup.orgId, pendingSetup.fullName, pendingSetup.specialty, pendingSetup.phone).then(function() {
+            document.getElementById('otpForm').classList.remove('visible');
+            var successBox = document.getElementById('joinSuccess');
+            successBox.classList.add('visible');
+            document.getElementById('joinSuccessMsg').textContent =
+              'Your request to join "' + pendingSetup.orgName + '" has been sent. The admin will approve it shortly. You can sign in once approved.';
+          });
+        }
+      }).catch(function(err) {
+        showError('otpError', err.message);
+        btn.disabled = false;
+        btn.textContent = 'Verify & Continue';
+      });
+    });
+
+    document.getElementById('otpResendBtn').addEventListener('click', function() {
+      if (!pendingSetup) return;
+      var btn = document.getElementById('otpResendBtn');
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+
+      resendOtp(pendingSetup.email).then(function() {
+        btn.textContent = 'Code resent!';
+        setTimeout(function() {
+          btn.disabled = false;
+          btn.textContent = 'Resend code';
+        }, 3000);
+      }).catch(function(err) {
+        showError('otpError', err.message);
+        btn.disabled = false;
+        btn.textContent = 'Resend code';
+      });
+    });
+
+    // Only allow digits in OTP input
+    document.getElementById('otpCodeInput').addEventListener('input', function() {
+      this.value = this.value.replace(/[^0-9]/g, '');
+    });
+    document.getElementById('otpCodeInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('otpVerifyBtn').click();
     });
 
     // Hide search results when clicking elsewhere
