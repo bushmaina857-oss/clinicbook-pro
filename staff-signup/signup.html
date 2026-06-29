@@ -237,7 +237,7 @@
     <div class="form-card" id="otpForm">
       <div class="form-card-title">Enter your verification code</div>
       <div class="otp-email-display" id="otpEmailDisplay"></div>
-      <div class="form-card-sub">We sent a 8-digit code to this email. Enter it below to finish setting up your account.</div>
+      <div class="form-card-sub">We sent a 6-digit code to this email. Enter it below to finish setting up your account.</div>
 
       <div class="error-msg" id="otpError"></div>
 
@@ -309,9 +309,13 @@
         headers: headers,
         body: JSON.stringify({ email: email, password: password })
       }).then(function(res) {
-        return res.json().then(function(data) { return { ok: res.ok, data: data }; });
+        return res.text().then(function(t) {
+          var data = {};
+          try { data = t ? JSON.parse(t) : {}; } catch(e) { data = { msg: t }; }
+          return { ok: res.ok, data: data };
+        });
       }).then(function(result) {
-        if (!result.ok) throw new Error(result.data.msg || result.data.error_description || 'Sign up failed');
+        if (!result.ok) throw new Error(result.data.msg || result.data.error_description || result.data.message || 'Sign up failed');
         return result.data;
       });
     }
@@ -322,9 +326,16 @@
         headers: headers,
         body: JSON.stringify({ email: email, token: token, type: 'signup' })
       }).then(function(res) {
-        return res.json().then(function(data) { return { ok: res.ok, data: data }; });
+        return res.text().then(function(t) {
+          var data = {};
+          try { data = t ? JSON.parse(t) : {}; } catch(e) { data = { msg: t }; }
+          return { ok: res.ok, data: data };
+        });
       }).then(function(result) {
-        if (!result.ok) throw new Error(result.data.msg || result.data.error_description || 'Invalid or expired code. Please try again.');
+        if (!result.ok) throw new Error(result.data.msg || result.data.error_description || result.data.message || 'Invalid or expired code. Please try again.');
+        if (!result.data || !result.data.access_token) {
+          throw new Error('Verification succeeded but no session was returned. Please try signing in directly.');
+        }
         return result.data;
       });
     }
@@ -335,8 +346,12 @@
         headers: headers,
         body: JSON.stringify({ type: 'signup', email: email })
       }).then(function(res) {
-        if (!res.ok) return res.json().then(function(e) { throw new Error(e.msg || 'Could not resend code'); });
-        return res.json();
+        return res.text().then(function(t) {
+          var data = {};
+          try { data = t ? JSON.parse(t) : {}; } catch(e) { data = { msg: t }; }
+          if (!res.ok) throw new Error(data.msg || data.error_description || data.message || 'Could not resend code');
+          return data;
+        });
       });
     }
 
