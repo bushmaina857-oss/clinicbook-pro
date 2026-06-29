@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ClinicBook Pro — Sign In</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #F7F9FB; --white: #fff; --navy: #0D1B2A;
+      --teal: #0A7EA4; --teal-light: #E6F4F9;
+      --text: #1A2636; --muted: #6B7A8D;
+      --border: #DDE3EA; --radius: 14px;
+    }
+    body {
+      font-family: 'Inter', sans-serif; background: var(--navy);
+      color: var(--text); min-height: 100vh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+
+    .login-box {
+      background: var(--white); border-radius: 20px;
+      padding: 32px 28px; width: 100%; max-width: 400px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.25);
+    }
+
+    .logo {
+      font-family: 'DM Serif Display', serif; font-size: 24px;
+      color: var(--navy); letter-spacing: -0.5px;
+      text-align: center; margin-bottom: 6px;
+    }
+    .logo span { color: var(--teal); }
+    .logo .pro-tag { color: #9CA3AF; font-size: 13px; font-family: 'Inter', sans-serif; }
+
+    .login-subtitle {
+      text-align: center; font-size: 13px; color: var(--muted);
+      margin-bottom: 28px;
+    }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label {
+      display: block; font-size: 12px; font-weight: 600;
+      color: var(--muted); margin-bottom: 6px;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .form-group input {
+      width: 100%; padding: 13px 14px; border-radius: 10px;
+      border: 1.5px solid var(--border); font-size: 14px;
+      font-family: 'Inter', sans-serif; color: var(--text);
+      outline: none; transition: border-color 0.15s; background: var(--bg);
+    }
+    .form-group input:focus { border-color: var(--teal); background: #fff; }
+
+    .login-btn {
+      width: 100%; padding: 14px; border-radius: 10px; border: none;
+      background: var(--teal); color: #fff; font-size: 15px; font-weight: 600;
+      font-family: 'Inter', sans-serif; cursor: pointer;
+      transition: background 0.15s; margin-top: 6px;
+    }
+    .login-btn:hover { background: #086988; }
+    .login-btn:disabled { background: var(--muted); cursor: not-allowed; }
+
+    .error-msg {
+      background: #FEE2E2; border: 1.5px solid #FCA5A5; border-radius: 10px;
+      padding: 12px 14px; font-size: 13px; color: #991B1B;
+      margin-bottom: 16px; display: none;
+    }
+
+    .info-msg {
+      background: #FFFBEB; border: 1.5px solid #FCD34D; border-radius: 10px;
+      padding: 12px 14px; font-size: 13px; color: #92400E;
+      margin-bottom: 16px; display: none; line-height: 1.5;
+    }
+
+    .back-link {
+      display: block; text-align: center; margin-top: 20px;
+      font-size: 13px; color: rgba(255,255,255,0.5);
+      text-decoration: none;
+    }
+    .back-link:hover { color: #fff; }
+
+    .signup-link {
+      text-align: center; margin-top: 18px; font-size: 13px; color: var(--muted);
+    }
+    .signup-link a { color: var(--teal); font-weight: 600; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <div class="login-box">
+    <div class="logo">Clinic<span>Book</span> <span class="pro-tag">PRO</span></div>
+    <div class="login-subtitle">Staff sign in — for admins, receptionists, and doctors</div>
+
+    <div class="error-msg" id="errorMsg"></div>
+    <div class="info-msg" id="infoMsg"></div>
+
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="emailInput" placeholder="your@email.com" />
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input type="password" id="passwordInput" placeholder="Enter your password" />
+    </div>
+
+    <button class="login-btn" id="loginBtn">Sign In</button>
+
+    <div class="signup-link">New here? <a href="signup.html">Set up your clinic</a></div>
+  </div>
+
+  <a class="back-link" href="index.html">&#8592; Back to patient portal</a>
+
+  <script>
+    var SUPABASE_URL = 'https://iyxumauddvmdfbukrzaa.supabase.co';
+    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5eHVtYXVkZHZtZGZidWtyemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NDk5MTUsImV4cCI6MjA5ODIyNTkxNX0.5B2LHcgRdrRrJbrjKWbK-kqUUlHnws7nxl1fNeZrvHE';
+
+    // If already logged in, try to redirect straight to dashboard
+    var stored = localStorage.getItem('clinicbook_pro_session');
+    if (stored) {
+      try {
+        var session = JSON.parse(stored);
+        if (session && session.access_token) {
+          redirectToDashboard(session.access_token, session.user.id);
+        }
+      } catch(e) {
+        localStorage.removeItem('clinicbook_pro_session');
+      }
+    }
+
+    function showError(msg) {
+      var el = document.getElementById('errorMsg');
+      el.textContent = msg;
+      el.style.display = 'block';
+      document.getElementById('infoMsg').style.display = 'none';
+    }
+    function showInfo(msg) {
+      var el = document.getElementById('infoMsg');
+      el.textContent = msg;
+      el.style.display = 'block';
+      document.getElementById('errorMsg').style.display = 'none';
+    }
+    function hideMessages() {
+      document.getElementById('errorMsg').style.display = 'none';
+      document.getElementById('infoMsg').style.display = 'none';
+    }
+
+    function fetchMyStaffRecord(accessToken, userId) {
+      return fetch(SUPABASE_URL + '/rest/v1/staff?user_id=eq.' + userId + '&select=id,role,org_id,is_active', {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + accessToken
+        }
+      }).then(function(res) {
+        if (!res.ok) throw new Error('Could not load your account details.');
+        return res.json();
+      });
+    }
+
+    function fetchMyJoinRequest(accessToken, userId) {
+      return fetch(SUPABASE_URL + '/rest/v1/join_requests?user_id=eq.' + userId + '&select=id,status,org_id&order=created_at.desc&limit=1', {
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + accessToken
+        }
+      }).then(function(res) {
+        if (!res.ok) return [];
+        return res.json();
+      });
+    }
+
+    function redirectToDashboard(accessToken, userId) {
+      fetchMyStaffRecord(accessToken, userId).then(function(staffRows) {
+        if (staffRows.length) {
+          var staff = staffRows[0];
+          if (!staff.is_active) {
+            localStorage.removeItem('clinicbook_pro_session');
+            showError('Your account has been deactivated. Please contact your organization admin.');
+            return;
+          }
+          if (staff.role === 'admin') {
+            window.location.href = 'admin-dashboard.html';
+          } else if (staff.role === 'receptionist') {
+            window.location.href = 'receptionist-dashboard.html';
+          } else if (staff.role === 'doctor') {
+            window.location.href = 'doctor-dashboard.html';
+          } else {
+            showError('Unrecognized role on your account. Please contact support.');
+          }
+          return;
+        }
+
+        // No staff record yet \u2014 check if they have a pending join request
+        return fetchMyJoinRequest(accessToken, userId).then(function(requests) {
+          if (requests.length) {
+            var req = requests[0];
+            if (req.status === 'pending') {
+              showInfo('Your request to join is still pending admin approval. You\'ll be able to sign in once approved.');
+            } else if (req.status === 'rejected') {
+              showError('Your request to join was not approved. Please contact the organization directly, or sign up to create your own.');
+            } else {
+              showError('Your account setup is incomplete. Please contact support.');
+            }
+          } else {
+            showError('No staff profile found for your account. Please complete sign up first.');
+          }
+          localStorage.removeItem('clinicbook_pro_session');
+        });
+      }).catch(function(err) {
+        showError(err.message);
+        localStorage.removeItem('clinicbook_pro_session');
+      });
+    }
+
+    function login() {
+      var email = document.getElementById('emailInput').value.trim();
+      var password = document.getElementById('passwordInput').value;
+      var btn = document.getElementById('loginBtn');
+
+      if (!email || !password) {
+        showError('Please enter your email and password.');
+        return;
+      }
+
+      hideMessages();
+      btn.disabled = true;
+      btn.textContent = 'Signing in...';
+
+      fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email: email, password: password })
+      }).then(function(res) {
+        return res.text().then(function(t) {
+          var data = {};
+          try { data = t ? JSON.parse(t) : {}; } catch(e) { data = { msg: t }; }
+          return { ok: res.ok, data: data };
+        });
+      }).then(function(result) {
+        if (!result.ok) {
+          throw new Error(result.data.error_description || result.data.msg || 'Invalid email or password');
+        }
+        localStorage.setItem('clinicbook_pro_session', JSON.stringify(result.data));
+        redirectToDashboard(result.data.access_token, result.data.user.id);
+      }).catch(function(err) {
+        showError(err.message);
+      }).finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Sign In';
+      });
+    }
+
+    document.getElementById('loginBtn').addEventListener('click', login);
+    document.getElementById('passwordInput').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') login();
+    });
+  </script>
+</body>
+</html>
