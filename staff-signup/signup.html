@@ -302,7 +302,7 @@
       btn.disabled = true;
       btn.textContent = 'Creating...';
 
-      var redirectUrl = window.location.origin + window.location.pathname.replace('signup.html', 'confirm-callback.html');
+      var redirectUrl = window.location.origin + '/confirm-callback.html';
 
       signUpUser(email, password, redirectUrl).then(function(authData) {
         // Store pending setup details in localStorage \u2014 picked up by confirm-callback.html
@@ -412,7 +412,7 @@
       btn.disabled = true;
       btn.textContent = 'Sending request...';
 
-      var redirectUrl = window.location.origin + window.location.pathname.replace('signup.html', 'confirm-callback.html');
+      var redirectUrl = window.location.origin + '/confirm-callback.html';
 
       signUpUser(email, password, redirectUrl).then(function(authData) {
         localStorage.setItem('clinicbook_pending_signup', JSON.stringify({
