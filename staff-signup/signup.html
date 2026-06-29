@@ -126,7 +126,7 @@
     /* OTP INPUT */
     .otp-input {
       width: 100%; padding: 16px 14px; border-radius: 10px;
-      border: 1.5px solid var(--border); font-size: 24px; letter-spacing: 8px;
+      border: 1.5px solid var(--border); font-size: 20px; letter-spacing: 5px;
       text-align: center; font-family: 'Inter', sans-serif; font-weight: 600;
       color: var(--text); outline: none; background: var(--bg);
     }
@@ -243,7 +243,7 @@
 
       <div class="form-group">
         <label>Verification Code</label>
-        <input type="text" id="otpCodeInput" class="otp-input" maxlength="6" placeholder="000000" inputmode="numeric" autocomplete="one-time-code" />
+        <input type="text" id="otpCodeInput" class="otp-input" maxlength="8" placeholder="00000000" inputmode="numeric" autocomplete="one-time-code" />
       </div>
 
       <button class="submit-btn" id="otpVerifyBtn">Verify & Continue</button>
@@ -533,7 +533,7 @@
 
       hideError('otpError');
 
-      if (!code || code.length !== 6) {
+      if (!code || code.length !== 8) {
         showError('otpError', 'Please enter the 6-digit code.');
         return;
       }
