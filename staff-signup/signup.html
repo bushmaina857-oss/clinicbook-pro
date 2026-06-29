@@ -237,7 +237,7 @@
     <div class="form-card" id="otpForm">
       <div class="form-card-title">Enter your verification code</div>
       <div class="otp-email-display" id="otpEmailDisplay"></div>
-      <div class="form-card-sub">We sent a 6-digit code to this email. Enter it below to finish setting up your account.</div>
+      <div class="form-card-sub">We sent a 8-digit code to this email. Enter it below to finish setting up your account.</div>
 
       <div class="error-msg" id="otpError"></div>
 
@@ -500,7 +500,11 @@
         method: 'POST', headers: h,
         body: JSON.stringify({ name: name, type: type, phone: phone })
       }).then(function(res) {
-        if (!res.ok) return res.json().then(function(e) { throw new Error(e.message || 'Failed to create organization'); });
+        if (!res.ok) return res.text().then(function(t) {
+          var msg = 'Failed to create organization';
+          try { msg = JSON.parse(t).message || msg; } catch(e) { if (t) msg = t; }
+          throw new Error(msg);
+        });
         return res.json();
       }).then(function(data) { return data[0]; });
     }
@@ -511,8 +515,12 @@
         method: 'POST', headers: h,
         body: JSON.stringify({ user_id: userId, org_id: orgId, role: role, full_name: fullName, phone: phone, is_active: true })
       }).then(function(res) {
-        if (!res.ok) return res.json().then(function(e) { throw new Error(e.message || 'Failed to create staff record'); });
-        return res.json();
+        if (!res.ok) return res.text().then(function(t) {
+          var msg = 'Failed to create staff record';
+          try { msg = JSON.parse(t).message || msg; } catch(e) { if (t) msg = t; }
+          throw new Error(msg);
+        });
+        return res.text().then(function(t) { return t ? JSON.parse(t) : null; });
       });
     }
 
@@ -522,8 +530,12 @@
         method: 'POST', headers: h,
         body: JSON.stringify({ user_id: userId, org_id: orgId, full_name: fullName, specialty: specialty, phone: phone, status: 'pending' })
       }).then(function(res) {
-        if (!res.ok) return res.json().then(function(e) { throw new Error(e.message || 'Failed to send join request'); });
-        return res.json();
+        if (!res.ok) return res.text().then(function(t) {
+          var msg = 'Failed to send join request';
+          try { msg = JSON.parse(t).message || msg; } catch(e) { if (t) msg = t; }
+          throw new Error(msg);
+        });
+        return res.text().then(function(t) { return t ? JSON.parse(t) : null; });
       });
     }
 
