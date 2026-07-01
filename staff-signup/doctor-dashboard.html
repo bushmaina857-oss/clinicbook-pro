@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ClinicBook Pro — Doctor Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #F7F9FB; --white: #fff; --navy: #0D1B2A;
+      --teal: #0A7EA4; --teal-light: #E6F4F9;
+      --text: #1A2636; --muted: #6B7A8D;
+      --border: #DDE3EA; --radius: 14px;
+      --card-shadow: 0 2px 12px rgba(13,27,42,0.07);
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 80px; }
+
+    header {
+      background: var(--navy); padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px; position: sticky; top: 0; z-index: 100;
+    }
+    .logo { font-family: 'DM Serif Display', serif; font-size: 20px; color: #fff; letter-spacing: -0.5px; }
+    .logo span { color: var(--teal); }
+    .logout-btn {
+      font-size: 13px; color: rgba(255,255,255,0.6); cursor: pointer;
+      background: none; border: none; font-family: 'Inter', sans-serif;
+      padding: 6px 12px; border-radius: 8px; transition: all 0.15s;
+    }
+    .logout-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+    .welcome { background: var(--navy); padding: 20px 24px 28px; }
+    .welcome-name { font-family: 'DM Serif Display', serif; font-size: 22px; color: #fff; margin-bottom: 4px; }
+    .welcome-sub { font-size: 13px; color: rgba(255,255,255,0.5); }
+
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 20px 24px 0; }
+    .stat-card { background: var(--white); border-radius: 12px; padding: 14px 12px; text-align: center; box-shadow: var(--card-shadow); }
+    .stat-num { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--navy); }
+    .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; font-weight: 500; }
+    .stat-card.pending .stat-num { color: #D97706; }
+    .stat-card.confirmed .stat-num { color: #16A34A; }
+
+    /* TABS */
+    .view-tabs {
+      display: flex; gap: 0; padding: 20px 24px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .view-tab {
+      flex: 1; padding: 10px 6px; text-align: center;
+      font-size: 13px; font-weight: 500; color: var(--muted);
+      cursor: pointer; border-bottom: 2px solid transparent;
+      transition: all 0.15s; background: none; border-top: none;
+      border-left: none; border-right: none; font-family: 'Inter', sans-serif;
+    }
+    .view-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+
+    .view-panel { display: none; }
+    .view-panel.active { display: block; }
+
+    /* DATE/SLOT GROUPING (queue view) */
+    .date-group { margin: 0 24px 22px; }
+    .date-header {
+      font-family: 'DM Serif Display', serif; font-size: 17px; color: var(--navy);
+      margin: 16px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--teal);
+    }
+    .slot-group { margin-bottom: 14px; }
+    .slot-header {
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 12px; font-weight: 600; color: var(--teal);
+      text-transform: uppercase; letter-spacing: 0.05em;
+      margin-bottom: 8px; padding: 6px 10px;
+      background: var(--teal-light); border-radius: 8px;
+    }
+    .slot-header .slot-count { color: var(--muted); font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+    .appt-card {
+      background: var(--white); border-radius: var(--radius);
+      box-shadow: var(--card-shadow); padding: 16px;
+      border-left: 4px solid var(--border); margin-bottom: 10px;
+    }
+    .appt-card.pending { border-left-color: #F59E0B; }
+    .appt-card.confirmed { border-left-color: #22C55E; }
+    .appt-card.cancelled { border-left-color: #EF4444; opacity: 0.7; }
+
+    .appt-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .appt-patient { font-size: 16px; font-weight: 600; color: var(--text); }
+    .appt-phone { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+    .status-badge {
+      font-size: 11px; font-weight: 600; padding: 4px 10px;
+      border-radius: 50px; text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;
+    }
+    .status-badge.pending { background: #FEF3C7; color: #D97706; }
+    .status-badge.confirmed { background: #DCFCE7; color: #16A34A; }
+    .status-badge.cancelled { background: #FEE2E2; color: #DC2626; }
+
+    .appt-reason { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 12px; font-style: italic; }
+
+    .appt-actions { display: flex; gap: 8px; }
+    .action-btn {
+      flex: 1; padding: 9px; border-radius: 8px; border: 1.5px solid var(--border);
+      font-size: 13px; font-weight: 600; font-family: 'Inter', sans-serif;
+      cursor: pointer; transition: all 0.15s; background: var(--white);
+    }
+    .action-btn.confirm { color: #16A34A; border-color: #86EFAC; }
+    .action-btn.confirm:hover { background: #DCFCE7; }
+    .action-btn.cancel { color: #DC2626; border-color: #FCA5A5; }
+    .action-btn.cancel:hover { background: #FEE2E2; }
+    .action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* SCHEDULE TAB */
+    .form-section { padding: 0 24px; margin-top: 16px; }
+    .form-card-wrap {
+      background: var(--white); border-radius: var(--radius);
+      box-shadow: var(--card-shadow); overflow: hidden; margin-bottom: 20px;
+    }
+    .form-card-header { background: var(--teal); padding: 14px 18px; font-family: 'DM Serif Display', serif; font-size: 18px; color: #fff; }
+    .form-card-body { padding: 18px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+    .form-group.full { grid-column: 1 / -1; }
+    .form-group label {
+      display: block; font-size: 11px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;
+    }
+    .form-group input, .form-group select {
+      width: 100%; padding: 11px 13px; border-radius: 10px;
+      border: 1.5px solid var(--border); font-size: 14px;
+      font-family: 'Inter', sans-serif; color: var(--text);
+      outline: none; transition: border-color 0.15s; background: var(--bg);
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--teal); background: #fff; }
+    .add-btn {
+      width: 100%; padding: 13px; border-radius: 10px; border: none;
+      background: var(--teal); color: #fff; font-size: 14px; font-weight: 600;
+      font-family: 'Inter', sans-serif; cursor: pointer; transition: background 0.15s;
+    }
+    .add-btn:hover { background: #086988; }
+    .add-btn:disabled { background: var(--muted); cursor: not-allowed; }
+
+    .schedule-row {
+      background: var(--white); border-radius: 12px;
+      box-shadow: var(--card-shadow); padding: 14px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px; border-left: 4px solid var(--teal);
+    }
+    .schedule-row.full { border-left-color: #EF4444; }
+    .schedule-row.cancelled { border-left-color: #9CA3AF; opacity: 0.6; }
+    .schedule-time { font-size: 15px; font-weight: 600; color: var(--text); }
+    .schedule-meta { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .schedule-right { display: flex; align-items: center; gap: 10px; }
+    .capacity-badge { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 50px; }
+    .capacity-badge.open { background: #DCFCE7; color: #16A34A; }
+    .capacity-badge.low { background: #FEF3C7; color: #D97706; }
+    .capacity-badge.full { background: #FEE2E2; color: #DC2626; }
+    .capacity-badge.cancelled { background: #F3F4F6; color: #6B7280; }
+    .cancel-slot-btn {
+      font-size: 12px; font-weight: 600; color: #DC2626;
+      background: none; border: 1.5px solid #FCA5A5; border-radius: 8px;
+      padding: 5px 10px; cursor: pointer; font-family: 'Inter', sans-serif;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .cancel-slot-btn:hover { background: #FEE2E2; }
+    .cancel-slot-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .success-toast {
+      background: #DCFCE7; border: 1.5px solid #86EFAC; border-radius: 10px;
+      padding: 12px 14px; font-size: 13px; color: #15803D;
+      margin-bottom: 14px; display: none; text-align: center; font-weight: 500;
+    }
+    .error-toast {
+      background: #FEE2E2; border: 1.5px solid #FCA5A5; border-radius: 10px;
+      padding: 12px 14px; font-size: 13px; color: #991B1B;
+      margin-bottom: 14px; display: none;
+    }
+
+    .skel { background: linear-gradient(90deg,#eee 25%,#f5f5f5 50%,#eee 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 8px; }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+
+    .empty { text-align: center; padding: 40px 0; }
+    .empty p { font-size: 14px; color: var(--muted); }
+
+    .error-box { margin: 16px 24px; padding: 14px 16px; background: #FEE2E2; border: 1.5px solid #FCA5A5; border-radius: 10px; font-size: 14px; color: #991B1B; display: none; }
+
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #ffffff; border-top: 2px solid #DDE3EA; display: flex; height: 64px; z-index: 999; box-shadow: 0 -2px 12px rgba(0,0,0,0.08); }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #6B7A8D; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; border: none; background: none; cursor: pointer; padding: 8px 4px; }
+    .nav-item img { width: 22px; height: 22px; }
+    .nav-item.active { color: #0A7EA4; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">Clinic<span>Book</span></div>
+    <button class="logout-btn" id="logoutBtn">Sign out</button>
+  </header>
+
+  <div class="welcome">
+    <div class="welcome-name" id="welcomeName">Loading...</div>
+    <div class="welcome-sub" id="welcomeSub"></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card pending">
+      <div class="stat-num" id="statPending">&mdash;</div>
+      <div class="stat-label">Pending</div>
+    </div>
+    <div class="stat-card confirmed">
+      <div class="stat-num" id="statConfirmed">&mdash;</div>
+      <div class="stat-label">Confirmed</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num" id="statSlots">&mdash;</div>
+      <div class="stat-label">Open Slots</div>
+    </div>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="view-tabs">
+    <button class="view-tab active" id="tabAppointments">My Patients</button>
+    <button class="view-tab" id="tabSchedule">My Schedule</button>
+  </div>
+
+  <!-- APPOINTMENTS / QUEUE VIEW -->
+  <div class="view-panel active" id="panelAppointments">
+    <div id="apptContainer">
+      <div class="date-group">
+        <div class="skel" style="height:90px;border-radius:14px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCHEDULE / SLOTS VIEW -->
+  <div class="view-panel" id="panelSchedule">
+    <div class="form-section">
+      <div class="form-card-wrap">
+        <div class="form-card-header">Add New Time Slot</div>
+        <div class="form-card-body">
+          <div class="success-toast" id="successToast"></div>
+          <div class="error-toast" id="errorToast"></div>
+          <div class="form-row">
+            <div class="form-group full">
+              <label>Date</label>
+              <input type="date" id="slotDate" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Start Time</label>
+              <input type="time" id="startTime" />
+            </div>
+            <div class="form-group">
+              <label>End Time</label>
+              <input type="time" id="endTime" />
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group full">
+              <label>Max Patients</label>
+              <select id="maxCapacity">
+                <option value="1">1 patient</option>
+                <option value="2">2 patients</option>
+                <option value="3">3 patients</option>
+                <option value="4">4 patients</option>
+                <option value="5">5 patients</option>
+                <option value="10">10 patients</option>
+              </select>
+            </div>
+          </div>
+          <button class="add-btn" id="addSlotBtn">Add Slot</button>
+        </div>
+      </div>
+      <div id="schedulesContainer">
+        <div class="skel" style="height:64px;border-radius:12px;margin-bottom:8px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <a class="nav-item active" href="doctor-dashboard.html">
+      <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%230A7EA4' stroke-width='2' viewBox='0 0 24 24'><rect x='3' y='3' width='7' height='7' rx='1'/><rect x='14' y='3' width='7' height='7' rx='1'/><rect x='3' y='14' width='7' height='7' rx='1'/><rect x='14' y='14' width='7' height='7' rx='1'/></svg>" alt=""/>
+      <span>Dashboard</span>
+    </a>
+  </nav>
+
+  <script>
+    var SUPABASE_URL = 'https://iyxumauddvmdfbukrzaa.supabase.co';
+    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5eHVtYXVkZHZtZGZidWtyemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NDk5MTUsImV4cCI6MjA5ODIyNTkxNX0.5B2LHcgRdrRrJbrjKWbK-kqUUlHnws7nxl1fNeZrvHE';
+
+    var session = null;
+    try { session = JSON.parse(localStorage.getItem('clinicbook_pro_session')); } catch(e) {}
+    if (!session || !session.access_token) { window.location.href = 'staff-login.html'; }
+
+    var authHeaders = {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + session.access_token,
+      'Content-Type': 'application/json'
+    };
+
+    var myStaffId = null;
+    var allAppointments = [];
+
+    function getLocalDateString() {
+      var d = new Date();
+      var year = d.getFullYear();
+      var month = String(d.getMonth() + 1).padStart(2, '0');
+      var day = String(d.getDate()).padStart(2, '0');
+      return year + '-' + month + '-' + day;
+    }
+    var today = getLocalDateString();
+
+    function safeJson(res) {
+      return res.text().then(function(t) {
+        var data = null;
+        try { data = t ? JSON.parse(t) : null; } catch(e) { data = t; }
+        if (!res.ok) {
+          var msg = (data && data.message) ? data.message : (typeof data === 'string' ? data : 'Request failed');
+          throw new Error(msg);
+        }
+        return data;
+      });
+    }
+
+    function formatTime(t) {
+      var parts = t.split(':');
+      var h = parseInt(parts[0]);
+      var m = parts[1];
+      var ampm = h >= 12 ? 'PM' : 'AM';
+      h = h % 12 || 12;
+      return h + ':' + m + ' ' + ampm;
+    }
+    function formatDate(d) {
+      var date = new Date(d + 'T00:00:00');
+      return date.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    }
+
+    // ---------- TAB SWITCHING ----------
+    document.getElementById('tabAppointments').addEventListener('click', function() {
+      this.classList.add('active');
+      document.getElementById('tabSchedule').classList.remove('active');
+      document.getElementById('panelAppointments').classList.add('active');
+      document.getElementById('panelSchedule').classList.remove('active');
+    });
+    document.getElementById('tabSchedule').addEventListener('click', function() {
+      this.classList.add('active');
+      document.getElementById('tabAppointments').classList.remove('active');
+      document.getElementById('panelSchedule').classList.add('active');
+      document.getElementById('panelAppointments').classList.remove('active');
+    });
+
+    // ---------- FETCH MY STAFF RECORD ----------
+    function fetchMyStaff() {
+      return fetch(SUPABASE_URL + '/rest/v1/staff?user_id=eq.' + session.user.id + '&select=id,full_name,role,specialty,org_id', {
+        headers: authHeaders
+      }).then(safeJson).then(function(rows) {
+        if (!rows.length || rows[0].role !== 'doctor') {
+          throw new Error('You do not have doctor access.');
+        }
+        return rows[0];
+      });
+    }
+
+    // ---------- APPOINTMENTS / QUEUE ----------
+    function fetchAppointments() {
+      return fetch(SUPABASE_URL + '/rest/v1/appointments?staff_id=eq.' + myStaffId +
+        '&select=id,patient_name,patient_phone,patient_reason,status,queue_number,is_seen,schedule_id,schedules(slot_date,start_time,end_time)' +
+        '&order=schedule_id.asc,queue_number.asc',
+        { headers: authHeaders }
+      ).then(safeJson);
+    }
+
+    function updateStats() {
+      var pending = allAppointments.filter(function(a) { return a.status === 'pending'; }).length;
+      var confirmed = allAppointments.filter(function(a) { return a.status === 'confirmed'; }).length;
+      document.getElementById('statPending').textContent = pending;
+      document.getElementById('statConfirmed').textContent = confirmed;
+    }
+
+    function updateStatus(appointmentId, newStatus, card) {
+      var btns = card.querySelectorAll('.action-btn');
+      btns.forEach(function(b) { b.disabled = true; });
+
+      fetch(SUPABASE_URL + '/rest/v1/appointments?id=eq.' + appointmentId, {
+        method: 'PATCH', headers: authHeaders, body: JSON.stringify({ status: newStatus })
+      }).then(safeJson).then(function() {
+        allAppointments.forEach(function(a) { if (a.id === appointmentId) a.status = newStatus; });
+        updateStats();
+        renderAppointments();
+      }).catch(function(err) {
+        alert('Could not update appointment: ' + err.message);
+        btns.forEach(function(b) { b.disabled = false; });
+      });
+    }
+
+    function markAsSeen(appointmentId, card) {
+      var btns = card.querySelectorAll('.action-btn');
+      btns.forEach(function(b) { b.disabled = true; });
+
+      fetch(SUPABASE_URL + '/rest/v1/appointments?id=eq.' + appointmentId, {
+        method: 'PATCH', headers: authHeaders, body: JSON.stringify({ is_seen: true })
+      }).then(safeJson).then(function() {
+        allAppointments.forEach(function(a) { if (a.id === appointmentId) a.is_seen = true; });
+        renderAppointments();
+      }).catch(function(err) {
+        alert('Could not update: ' + err.message);
+        btns.forEach(function(b) { b.disabled = false; });
+      });
+    }
+
+    function buildApptCard(a) {
+      var card = document.createElement('div');
+      card.className = 'appt-card ' + a.status;
+
+      var header = document.createElement('div');
+      header.className = 'appt-header';
+
+      var patientInfo = document.createElement('div');
+      var patientName = document.createElement('div');
+      patientName.className = 'appt-patient';
+      var queuePrefix = a.queue_number ? '#' + a.queue_number + ' \u2014 ' : '';
+      patientName.textContent = queuePrefix + a.patient_name;
+      if (a.is_seen) {
+        patientName.style.textDecoration = 'line-through';
+        patientName.style.color = '#9CA3AF';
+      }
+      var patientPhone = document.createElement('div');
+      patientPhone.className = 'appt-phone';
+      patientPhone.textContent = a.patient_phone;
+      patientInfo.appendChild(patientName);
+      patientInfo.appendChild(patientPhone);
+
+      var badge = document.createElement('span');
+      badge.className = 'status-badge ' + a.status;
+      badge.textContent = a.is_seen ? 'Seen' : (a.status.charAt(0).toUpperCase() + a.status.slice(1));
+
+      header.appendChild(patientInfo);
+      header.appendChild(badge);
+
+      var reasonEl = document.createElement('div');
+      reasonEl.className = 'appt-reason';
+      reasonEl.textContent = a.patient_reason ? '"' + a.patient_reason + '"' : 'No reason provided';
+
+      card.appendChild(header);
+      card.appendChild(reasonEl);
+
+      var actions = document.createElement('div');
+      actions.className = 'appt-actions';
+      var hasActions = false;
+
+      if (a.status === 'pending') {
+        var confirmBtn = document.createElement('button');
+        confirmBtn.className = 'action-btn confirm';
+        confirmBtn.textContent = 'Confirm';
+        confirmBtn.addEventListener('click', function() { updateStatus(a.id, 'confirmed', card); });
+
+        var cancelBtn = document.createElement('button');
+        cancelBtn.className = 'action-btn cancel';
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.addEventListener('click', function() {
+          if (confirm('Cancel this appointment for ' + a.patient_name + '?')) updateStatus(a.id, 'cancelled', card);
+        });
+
+        actions.appendChild(confirmBtn);
+        actions.appendChild(cancelBtn);
+        hasActions = true;
+      } else if (a.status === 'confirmed' && !a.is_seen) {
+        var seenBtn = document.createElement('button');
+        seenBtn.className = 'action-btn confirm';
+        seenBtn.textContent = '\u2713 Mark as Seen (Next Patient)';
+        seenBtn.addEventListener('click', function() { markAsSeen(a.id, card); });
+        actions.appendChild(seenBtn);
+        hasActions = true;
+      }
+
+      if (hasActions) card.appendChild(actions);
+      return card;
+    }
+
+    function renderAppointments() {
+      var container = document.getElementById('apptContainer');
+      container.innerHTML = '';
+
+      if (!allAppointments.length) {
+        container.innerHTML = '<div class="empty"><p>No appointments yet.</p></div>';
+        return;
+      }
+
+      var dateGroups = {};
+      var dateOrder = [];
+
+      allAppointments.forEach(function(a) {
+        var slot = a.schedules;
+        var dateKey = slot ? slot.slot_date : 'unknown';
+        if (!dateGroups[dateKey]) { dateGroups[dateKey] = { slots: {}, slotOrder: [] }; dateOrder.push(dateKey); }
+        var slotKey = slot ? slot.start_time + '-' + slot.end_time : 'unknown';
+        if (!dateGroups[dateKey].slots[slotKey]) {
+          dateGroups[dateKey].slots[slotKey] = { slot: slot, appts: [] };
+          dateGroups[dateKey].slotOrder.push(slotKey);
+        }
+        dateGroups[dateKey].slots[slotKey].appts.push(a);
+      });
+
+      dateOrder.sort();
+
+      dateOrder.forEach(function(dateKey) {
+        var dateGroupEl = document.createElement('div');
+        dateGroupEl.className = 'date-group';
+
+        var dateHeader = document.createElement('div');
+        dateHeader.className = 'date-header';
+        dateHeader.textContent = dateKey === 'unknown' ? 'Date unavailable' : formatDate(dateKey);
+        dateGroupEl.appendChild(dateHeader);
+
+        var dg = dateGroups[dateKey];
+        dg.slotOrder.sort();
+
+        dg.slotOrder.forEach(function(slotKey) {
+          var slotData = dg.slots[slotKey];
+          var slotGroupEl = document.createElement('div');
+          slotGroupEl.className = 'slot-group';
+
+          var slotHeader = document.createElement('div');
+          slotHeader.className = 'slot-header';
+          var timeLabel = slotData.slot ? formatTime(slotData.slot.start_time) + ' - ' + formatTime(slotData.slot.end_time) : 'Time unavailable';
+          var notSeenCount = slotData.appts.filter(function(a) { return !a.is_seen && a.status !== 'cancelled'; }).length;
+
+          var labelSpan = document.createElement('span');
+          labelSpan.textContent = '\u23F0 ' + timeLabel;
+          var countSpan = document.createElement('span');
+          countSpan.className = 'slot-count';
+          countSpan.textContent = notSeenCount + ' waiting';
+          slotHeader.appendChild(labelSpan);
+          slotHeader.appendChild(countSpan);
+          slotGroupEl.appendChild(slotHeader);
+
+          slotData.appts.sort(function(a, b) { return (a.queue_number || 0) - (b.queue_number || 0); });
+          slotData.appts.forEach(function(a) { slotGroupEl.appendChild(buildApptCard(a)); });
+
+          dateGroupEl.appendChild(slotGroupEl);
+        });
+
+        container.appendChild(dateGroupEl);
+      });
+    }
+
+    // ---------- SCHEDULE / SLOTS ----------
+    document.getElementById('slotDate').min = today;
+    document.getElementById('slotDate').value = today;
+
+    function fetchSchedules() {
+      return fetch(SUPABASE_URL + '/rest/v1/schedules?staff_id=eq.' + myStaffId +
+        '&slot_date=gte.' + today +
+        '&select=id,slot_date,start_time,end_time,max_capacity,booked_count,is_cancelled' +
+        '&order=slot_date.asc,start_time.asc',
+        { headers: authHeaders }
+      ).then(safeJson);
+    }
+
+    function showSuccessToast(msg) {
+      var el = document.getElementById('successToast');
+      el.textContent = msg; el.style.display = 'block';
+      document.getElementById('errorToast').style.display = 'none';
+      setTimeout(function() { el.style.display = 'none'; }, 3000);
+    }
+    function showErrorToast(msg) {
+      var el = document.getElementById('errorToast');
+      el.textContent = msg; el.style.display = 'block';
+      document.getElementById('successToast').style.display = 'none';
+    }
+
+    function renderSchedules(schedules) {
+      var container = document.getElementById('schedulesContainer');
+      container.innerHTML = '';
+
+      var openCount = schedules.filter(function(s) { return !s.is_cancelled && s.booked_count < s.max_capacity; }).length;
+      document.getElementById('statSlots').textContent = openCount;
+
+      if (!schedules.length) {
+        container.innerHTML = '<div class="empty"><p>No upcoming slots. Add your first slot above.</p></div>';
+        return;
+      }
+
+      var groups = {};
+      var dateOrder = [];
+      schedules.forEach(function(s) {
+        if (!groups[s.slot_date]) { groups[s.slot_date] = []; dateOrder.push(s.slot_date); }
+        groups[s.slot_date].push(s);
+      });
+
+      dateOrder.forEach(function(date) {
+        var group = document.createElement('div');
+        group.className = 'date-group';
+        var label = document.createElement('div');
+        label.className = 'date-header';
+        label.textContent = formatDate(date);
+        group.appendChild(label);
+
+        groups[date].forEach(function(slot) {
+          var isFull = slot.booked_count >= slot.max_capacity;
+          var remaining = slot.max_capacity - slot.booked_count;
+          var isCancelled = slot.is_cancelled;
+
+          var row = document.createElement('div');
+          row.className = 'schedule-row' + (isCancelled ? ' cancelled' : (isFull ? ' full' : ''));
+
+          var left = document.createElement('div');
+          var timeEl = document.createElement('div');
+          timeEl.className = 'schedule-time';
+          timeEl.textContent = formatTime(slot.start_time) + ' - ' + formatTime(slot.end_time);
+          var metaEl = document.createElement('div');
+          metaEl.className = 'schedule-meta';
+          metaEl.textContent = slot.booked_count + ' / ' + slot.max_capacity + ' booked';
+          left.appendChild(timeEl);
+          left.appendChild(metaEl);
+
+          var right = document.createElement('div');
+          right.className = 'schedule-right';
+          var badge = document.createElement('span');
+          badge.className = 'capacity-badge';
+          if (isCancelled) { badge.classList.add('cancelled'); badge.textContent = 'Cancelled'; }
+          else if (isFull) { badge.classList.add('full'); badge.textContent = 'Full'; }
+          else if (remaining <= 1) { badge.classList.add('low'); badge.textContent = remaining + ' left'; }
+          else { badge.classList.add('open'); badge.textContent = remaining + ' open'; }
+          right.appendChild(badge);
+
+          if (!isCancelled) {
+            var cancelBtn = document.createElement('button');
+            cancelBtn.className = 'cancel-slot-btn';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', function() {
+              if (confirm('Cancel this slot? Patients who booked will not be auto-notified.')) {
+                cancelSlot(slot.id, cancelBtn, row);
+              }
+            });
+            right.appendChild(cancelBtn);
+          }
+
+          row.appendChild(left);
+          row.appendChild(right);
+          group.appendChild(row);
+        });
+
+        container.appendChild(group);
+      });
+    }
+
+    function cancelSlot(slotId, btn, row) {
+      btn.disabled = true; btn.textContent = '...';
+      fetch(SUPABASE_URL + '/rest/v1/schedules?id=eq.' + slotId, {
+        method: 'PATCH', headers: authHeaders, body: JSON.stringify({ is_cancelled: true })
+      }).then(safeJson).then(function() {
+        return fetchSchedules();
+      }).then(function(schedules) {
+        renderSchedules(schedules);
+      }).catch(function(err) {
+        alert('Could not cancel slot: ' + err.message);
+        btn.disabled = false; btn.textContent = 'Cancel';
+      });
+    }
+
+    document.getElementById('addSlotBtn').addEventListener('click', function() {
+      var date = document.getElementById('slotDate').value;
+      var start = document.getElementById('startTime').value;
+      var end = document.getElementById('endTime').value;
+      var capacity = parseInt(document.getElementById('maxCapacity').value);
+      var btn = document.getElementById('addSlotBtn');
+
+      if (!date) { showErrorToast('Please select a date.'); return; }
+      if (!start) { showErrorToast('Please set a start time.'); return; }
+      if (!end) { showErrorToast('Please set an end time.'); return; }
+      if (end <= start) { showErrorToast('End time must be after start time.'); return; }
+
+      btn.disabled = true; btn.textContent = 'Adding...';
+
+      fetch(SUPABASE_URL + '/rest/v1/schedules', {
+        method: 'POST', headers: authHeaders,
+        body: JSON.stringify({ staff_id: myStaffId, slot_date: date, start_time: start, end_time: end, max_capacity: capacity, booked_count: 0, is_cancelled: false })
+      }).then(safeJson).then(function() {
+        showSuccessToast('Slot added successfully!');
+        document.getElementById('startTime').value = '';
+        document.getElementById('endTime').value = '';
+        return fetchSchedules();
+      }).then(function(schedules) {
+        renderSchedules(schedules);
+        btn.disabled = false; btn.textContent = 'Add Slot';
+      }).catch(function(err) {
+        showErrorToast('Error: ' + err.message);
+        btn.disabled = false; btn.textContent = 'Add Slot';
+      });
+    });
+
+    document.getElementById('logoutBtn').addEventListener('click', function() {
+      localStorage.removeItem('clinicbook_pro_session');
+      window.location.href = 'staff-login.html';
+    });
+
+    function showErrorBox(msg) {
+      var el = document.getElementById('errorBox');
+      el.textContent = msg; el.style.display = 'block';
+    }
+
+    // ---------- INIT ----------
+    fetchMyStaff().then(function(staff) {
+      myStaffId = staff.id;
+      document.getElementById('welcomeName').textContent = 'Welcome, ' + staff.full_name;
+      document.getElementById('welcomeSub').textContent = staff.specialty || 'Doctor';
+
+      return Promise.all([fetchAppointments(), fetchSchedules()]);
+    }).then(function(results) {
+      allAppointments = results[0];
+      updateStats();
+      renderAppointments();
+      renderSchedules(results[1]);
+    }).catch(function(err) {
+      if (err.message.indexOf('JWT') !== -1 || err.message.indexOf('token') !== -1) {
+        localStorage.removeItem('clinicbook_pro_session');
+        window.location.href = 'staff-login.html';
+      } else {
+        showErrorBox(err.message);
+      }
+      console.error(err);
+    });
+  </script>
+</body>
+</html>
