@@ -1,0 +1,6 @@
+name = "clinicbook-pro"
+compatibility_date = "2026-06-28"
+
+[assets]
+directory = "./staff-signup"
+not_found_handling = "404-page"
