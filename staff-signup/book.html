@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Book Appointment — ClinicBook Pro</title>
+<style>
+  :root {
+    --teal-deep: #0F6B66;
+    --teal-ink: #0B4F4B;
+    --mint-bg: #F3F8F7;
+    --coral: #E8735C;
+    --coral-dark: #D45D45;
+    --ink: #1A2421;
+    --ink-soft: #5B6D69;
+    --border: #DEE8E6;
+    --white: #FFFFFF;
+    --radius: 14px;
+    --green: #2FAE8A;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--mint-bg);
+    color: var(--ink);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; }
+  a { text-decoration: none; color: inherit; }
+
+  header {
+    background: var(--teal-deep);
+    color: var(--white);
+    padding: 16px 20px;
+  }
+  .header-inner {
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .back-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0.9;
+    padding: 6px 10px;
+    border-radius: 8px;
+    transition: background 0.15s ease;
+  }
+  .back-link:hover { background: rgba(255,255,255,0.12); }
+
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 28px 20px 60px;
+  }
+
+  /* Doctor header */
+  .doctor-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+  .doctor-photo-lg, .doctor-initials-lg {
+    width: 60px; height: 60px;
+    border-radius: 14px;
+    flex-shrink: 0;
+    object-fit: cover;
+  }
+  .doctor-initials-lg {
+    background: linear-gradient(135deg, var(--coral), var(--coral-dark));
+    color: var(--white);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600;
+    font-size: 20px;
+  }
+  .doctor-name-lg { font-size: 20px; font-weight: 600; }
+  .doctor-org { font-size: 13.5px; color: var(--ink-soft); margin-top: 2px; }
+
+  /* Card */
+  .card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 18px;
+  }
+  .card-title {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--ink-soft);
+    font-weight: 600;
+    margin-bottom: 14px;
+  }
+
+  /* Slot grid */
+  .date-tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    margin-bottom: 16px;
+  }
+  .date-tab {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    cursor: pointer;
+    background: var(--white);
+    white-space: nowrap;
+  }
+  .date-tab.active {
+    background: var(--teal-deep);
+    border-color: var(--teal-deep);
+    color: var(--white);
+  }
+
+  .slot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px;
+  }
+  .slot-btn {
+    padding: 10px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--white);
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.12s ease;
+  }
+  .slot-btn:hover:not(:disabled) { border-color: var(--teal-deep); }
+  .slot-btn.selected {
+    background: var(--teal-deep);
+    border-color: var(--teal-deep);
+    color: var(--white);
+  }
+  .slot-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    text-decoration: line-through;
+  }
+
+  /* Form */
+  .form-group { margin-bottom: 14px; }
+  .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .form-group input, .form-group textarea {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 14.5px;
+    font-family: inherit;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.12s ease;
+  }
+  .form-group input:focus, .form-group textarea:focus { border-color: var(--teal-deep); }
+  .form-group textarea { resize: vertical; min-height: 70px; }
+
+  .submit-btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 10px;
+    background: var(--coral);
+    color: var(--white);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+  .submit-btn:hover:not(:disabled) { background: var(--coral-dark); }
+  .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .error-msg {
+    color: #C0392B;
+    font-size: 13px;
+    margin-top: 10px;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+
+  /* Confirmation state */
+  .confirm-box {
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .confirm-icon {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: var(--green);
+    color: var(--white);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 28px;
+    margin: 0 auto 18px;
+  }
+  .confirm-box h2 { font-size: 20px; margin-bottom: 8px; }
+  .confirm-box p { color: var(--ink-soft); font-size: 14px; margin-bottom: 4px; }
+  .confirm-detail {
+    background: var(--mint-bg);
+    border-radius: 10px;
+    padding: 14px;
+    margin: 18px 0;
+    text-align: left;
+    font-size: 14px;
+  }
+  .confirm-detail div { margin-bottom: 4px; }
+  .confirm-detail strong { color: var(--ink); }
+
+  .state-box { text-align: center; padding: 50px 20px; color: var(--ink-soft); }
+  .state-box h3 { color: var(--ink); font-size: 17px; margin-bottom: 6px; font-weight: 600; }
+  .state-box p { font-size: 14px; }
+
+  footer { text-align: center; padding: 24px 20px 40px; color: var(--ink-soft); font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a id="backLink" href="index.html" class="back-link">← Back</a>
+  </div>
+</header>
+
+<main id="mainContent">
+  <div class="state-box"><h3>Loading...</h3></div>
+</main>
+
+<footer>ClinicBook Pro</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // --- Supabase config: use the same project URL / anon key as your other ClinicBook Pro pages ---
+  const SUPABASE_URL = 'https://iyxumauddvmdfbukrzaa.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5eHVtYXVkZHZtZGZidWtyemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NDk5MTUsImV4cCI6MjA5ODIyNTkxNX0.5B2LHcgRdrRrJbrjKWbK-kqUUlHnws7nxl1fNeZrvHE';
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const params = new URLSearchParams(window.location.search);
+  const doctorId = params.get("doctor");
+  const orgId = params.get("org");
+
+  const mainContent = document.getElementById("mainContent");
+  const backLink = document.getElementById("backLink");
+  if (orgId) backLink.href = `org.html?id=${orgId}`;
+
+  let doctor = null;
+  let schedules = [];
+  let selectedSchedule = null;
+  let selectedDateKey = null;
+
+  function getInitials(name) {
+    return (name || "")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(w => w[0].toUpperCase())
+      .join("");
+  }
+
+  function formatDateLabel(dateStr) {
+    const d = new Date(dateStr + "T00:00:00");
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    if (d.getTime() === today.getTime()) return "Today";
+    if (d.getTime() === tomorrow.getTime()) return "Tomorrow";
+    return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  }
+
+  function formatTime(t) {
+    // expects "HH:MM:SS" or "HH:MM"
+    const [h, m] = t.split(":").map(Number);
+    const period = h >= 12 ? "PM" : "AM";
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${String(m).padStart(2, "0")} ${period}`;
+  }
+
+  function renderError(title, sub) {
+    mainContent.innerHTML = `<div class="state-box"><h3>${title}</h3><p>${sub}</p></div>`;
+  }
+
+  function renderPage() {
+    const photo = doctor.photo_url
+      ? `<img class="doctor-photo-lg" src="${doctor.photo_url}" alt="${doctor.full_name}">`
+      : `<div class="doctor-initials-lg">${getInitials(doctor.full_name)}</div>`;
+
+    // group schedules by date
+    const byDate = {};
+    schedules.forEach(s => {
+      if (!byDate[s.slot_date]) byDate[s.slot_date] = [];
+      byDate[s.slot_date].push(s);
+    });
+    const dateKeys = Object.keys(byDate).sort();
+
+    if (!dateKeys.length) {
+      mainContent.innerHTML = `
+        <div class="doctor-header">
+          ${photo}
+          <div>
+            <div class="doctor-name-lg">${doctor.full_name}</div>
+            ${doctor.specialty ? `<div class="doctor-org">${doctor.specialty}</div>` : ""}
+          </div>
+        </div>
+        <div class="state-box">
+          <h3>No open slots right now</h3>
+          <p>Please check back later or contact the clinic directly.</p>
+        </div>`;
+      return;
+    }
+
+    if (!selectedDateKey) selectedDateKey = dateKeys[0];
+
+    const dateTabs = dateKeys.map(dk => `
+      <div class="date-tab ${dk === selectedDateKey ? "active" : ""}" data-date="${dk}">
+        ${formatDateLabel(dk)}
+      </div>`).join("");
+
+    const slotsForDate = byDate[selectedDateKey] || [];
+    const slotButtons = slotsForDate.map(s => {
+      const full = s.booked_count >= s.capacity;
+      return `
+        <button type="button" class="slot-btn ${selectedSchedule && selectedSchedule.id === s.id ? "selected" : ""}"
+          data-id="${s.id}" ${full ? "disabled" : ""}>
+          ${formatTime(s.start_time)}
+        </button>`;
+    }).join("");
+
+    mainContent.innerHTML = `
+      <div class="doctor-header">
+        ${photo}
+        <div>
+          <div class="doctor-name-lg">${doctor.full_name}</div>
+          ${doctor.specialty ? `<div class="doctor-org">${doctor.specialty}</div>` : ""}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Choose a time</div>
+        <div class="date-tabs">${dateTabs}</div>
+        <div class="slot-grid">${slotButtons}</div>
+      </div>
+
+      <div class="card" id="detailsCard" style="display: ${selectedSchedule ? "block" : "none"};">
+        <div class="card-title">Your details</div>
+        <div class="form-group">
+          <label for="patientName">Full name</label>
+          <input type="text" id="patientName" placeholder="e.g. Amina Belkacem">
+        </div>
+        <div class="form-group">
+          <label for="patientPhone">Phone number</label>
+          <input type="tel" id="patientPhone" placeholder="e.g. 0555 12 34 56">
+        </div>
+        <div class="form-group">
+          <label for="patientReason">Reason for visit (optional)</label>
+          <textarea id="patientReason" placeholder="Briefly describe your reason for visiting"></textarea>
+        </div>
+        <button type="button" class="submit-btn" id="submitBtn">Confirm booking</button>
+        <div class="error-msg" id="formError"></div>
+      </div>
+    `;
+
+    document.querySelectorAll(".date-tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        selectedDateKey = tab.dataset.date;
+        selectedSchedule = null;
+        renderPage();
+      });
+    });
+
+    document.querySelectorAll(".slot-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (btn.disabled) return;
+        selectedSchedule = slotsForDate.find(s => String(s.id) === btn.dataset.id);
+        renderPage();
+        document.getElementById("detailsCard")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+    });
+
+    const submitBtn = document.getElementById("submitBtn");
+    if (submitBtn) submitBtn.addEventListener("click", submitBooking);
+  }
+
+  function renderConfirmation(appt) {
+    mainContent.innerHTML = `
+      <div class="card confirm-box">
+        <div class="confirm-icon">✓</div>
+        <h2>Booking requested</h2>
+        <p>${doctor.full_name} will confirm your appointment shortly.</p>
+        <div class="confirm-detail">
+          <div><strong>Date:</strong> ${formatDateLabel(selectedSchedule.slot_date)}</div>
+          <div><strong>Time:</strong> ${formatTime(selectedSchedule.start_time)}</div>
+          <div><strong>Patient:</strong> ${appt.patient_name}</div>
+        </div>
+        <a href="org.html?id=${orgId}" class="back-link" style="color: var(--teal-deep); display: inline-block;">← Back to clinic</a>
+      </div>`;
+  }
+
+  async function submitBooking() {
+    const nameEl = document.getElementById("patientName");
+    const phoneEl = document.getElementById("patientPhone");
+    const reasonEl = document.getElementById("patientReason");
+    const errorEl = document.getElementById("formError");
+    const submitBtn = document.getElementById("submitBtn");
+
+    const patient_name = nameEl.value.trim();
+    const patient_phone = phoneEl.value.trim();
+    const reason = reasonEl.value.trim();
+
+    if (!patient_name || !patient_phone) {
+      errorEl.textContent = "Please enter your name and phone number.";
+      errorEl.classList.add("show");
+      return;
+    }
+
+    errorEl.classList.remove("show");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Booking...";
+
+    try {
+      const { data, error } = await supabase
+        .from("appointments")
+        .insert({
+          org_id: orgId,
+          staff_id: doctorId,
+          schedule_id: selectedSchedule.id,
+          patient_name,
+          patient_phone,
+          reason: reason || null,
+          status: "pending",
+          source: "patient"
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      renderConfirmation(data);
+    } catch (err) {
+      console.error(err);
+      errorEl.textContent = "Couldn't complete your booking. Please try again.";
+      errorEl.classList.add("show");
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Confirm booking";
+    }
+  }
+
+  async function load() {
+    if (!doctorId) {
+      renderError("Doctor not found", "This link may be broken.");
+      return;
+    }
+
+    try {
+      const { data: docData, error: docError } = await supabase
+        .from("staff")
+        .select("id, full_name, photo_url, specialty, org_id")
+        .eq("id", doctorId)
+        .single();
+
+      if (docError || !docData) {
+        renderError("Doctor not found", "This link may be broken or the doctor is no longer listed.");
+        return;
+      }
+      doctor = docData;
+
+      const todayStr = new Date().toISOString().split("T")[0];
+
+      const { data: scheduleData, error: scheduleError } = await supabase
+        .from("schedules")
+        .select("id, slot_date, start_time, end_time, capacity, booked_count")
+        .eq("staff_id", doctorId)
+        .gte("slot_date", todayStr)
+        .order("slot_date", { ascending: true })
+        .order("start_time", { ascending: true });
+
+      if (scheduleError) throw scheduleError;
+
+      schedules = scheduleData || [];
+      renderPage();
+    } catch (err) {
+      console.error(err);
+      renderError("Something went wrong", "Please check your connection and try again.");
+    }
+  }
+
+  load();
+</script>
+
+</body>
+</html>
