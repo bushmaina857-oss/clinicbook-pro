@@ -1,5 +1,5 @@
 name = "clinicbook-pro"
-compatibility_date = "2026-06-28"
+compatibility_date = "2025-01-01"
 
 [assets]
 directory = "./staff-signup"

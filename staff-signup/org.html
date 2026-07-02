@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clinic — ClinicBook Pro</title>
+<style>
+  :root {
+    --teal-deep: #0F6B66;
+    --teal-ink: #0B4F4B;
+    --mint-bg: #F3F8F7;
+    --coral: #E8735C;
+    --coral-dark: #D45D45;
+    --ink: #1A2421;
+    --ink-soft: #5B6D69;
+    --border: #DEE8E6;
+    --white: #FFFFFF;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--mint-bg);
+    color: var(--ink);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; }
+  a { text-decoration: none; color: inherit; }
+
+  /* Header */
+  header {
+    background: var(--teal-deep);
+    color: var(--white);
+    padding: 16px 20px;
+  }
+  .header-inner {
+    max-width: 960px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .back-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0.9;
+    padding: 6px 10px;
+    border-radius: 8px;
+    transition: background 0.15s ease;
+  }
+  .back-link:hover { background: rgba(255,255,255,0.12); }
+
+  main {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 20px 60px;
+  }
+
+  /* Org banner */
+  .org-banner {
+    background: var(--teal-deep);
+    color: var(--white);
+    padding: 30px 20px 46px;
+    margin: 0 -20px;
+  }
+  .org-banner-inner {
+    max-width: 920px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+  }
+  .org-photo-lg {
+    width: 76px; height: 76px;
+    border-radius: 16px;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,0.25);
+  }
+  .org-initials-lg {
+    width: 76px; height: 76px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.14);
+    border: 2px solid rgba(255,255,255,0.25);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600;
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+  .org-banner h1 {
+    font-size: clamp(22px, 4vw, 28px);
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .org-meta {
+    font-size: 13.5px;
+    color: #CFE7E4;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+  }
+
+  /* Info card (address / contact) */
+  .info-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin-top: -26px;
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px 32px;
+    box-shadow: 0 10px 26px rgba(15, 107, 102, 0.08);
+  }
+  .info-item { display: flex; flex-direction: column; gap: 2px; }
+  .info-label {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+  .info-value { font-size: 14px; color: var(--ink); }
+  .whatsapp-link { color: var(--teal-deep); font-weight: 600; }
+
+  /* Doctors section */
+  .section-label {
+    color: var(--ink-soft);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin: 34px 0 14px;
+    font-weight: 600;
+  }
+
+  .doctor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+  }
+
+  .doctor-card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    cursor: pointer;
+  }
+  .doctor-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgba(15, 107, 102, 0.12);
+    border-color: var(--teal-deep);
+  }
+  .doctor-card:focus-visible {
+    outline: 2px solid var(--teal-deep);
+    outline-offset: 2px;
+  }
+
+  .doctor-top { display: flex; align-items: center; gap: 12px; }
+  .doctor-photo {
+    width: 52px; height: 52px;
+    border-radius: 12px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--teal-deep);
+  }
+  .doctor-initials {
+    width: 52px; height: 52px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--coral), var(--coral-dark));
+    color: var(--white);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 600;
+    font-size: 17px;
+    flex-shrink: 0;
+  }
+  .doctor-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+    font-family: Georgia, serif;
+  }
+  .doctor-specialty {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+
+  .doctor-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .today-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--teal-deep);
+    font-weight: 600;
+  }
+  .pulse-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #2FAE8A;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .pulse-dot::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    background: #2FAE8A;
+    opacity: 0.35;
+    animation: pulse 1.8s ease-out infinite;
+  }
+  @keyframes pulse {
+    0% { transform: scale(0.6); opacity: 0.4; }
+    100% { transform: scale(2); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pulse-dot::after { animation: none; }
+  }
+  .view-link { font-size: 13px; font-weight: 600; color: var(--coral-dark); }
+
+  /* States */
+  .state-box { text-align: center; padding: 50px 20px; color: var(--ink-soft); }
+  .state-box h3 { color: var(--ink); font-size: 17px; margin-bottom: 6px; font-weight: 600; }
+  .state-box p { font-size: 14px; }
+
+  .skeleton {
+    background: linear-gradient(90deg, #E9F1EF 25%, #F3F8F7 50%, #E9F1EF 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    border-radius: var(--radius);
+    height: 130px;
+  }
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  footer { text-align: center; padding: 24px 20px 40px; color: var(--ink-soft); font-size: 12.5px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <a href="index.html" class="back-link">← All clinics</a>
+  </div>
+</header>
+
+<div id="bannerWrap"></div>
+
+<main>
+  <div id="infoCardWrap"></div>
+  <div class="section-label" id="doctorsLabel">Doctors</div>
+  <div id="doctorGrid" class="doctor-grid"></div>
+</main>
+
+<footer>ClinicBook Pro</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // --- Supabase config: use the same project URL / anon key as your other ClinicBook Pro pages ---
+  const SUPABASE_URL = 'https://iyxumauddvmdfbukrzaa.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5eHVtYXVkZHZtZGZidWtyemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NDk5MTUsImV4cCI6MjA5ODIyNTkxNX0.5B2LHcgRdrRrJbrjKWbK-kqUUlHnws7nxl1fNeZrvHE';
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  const params = new URLSearchParams(window.location.search);
+  const orgId = params.get("id");
+
+  const bannerWrap = document.getElementById("bannerWrap");
+  const infoCardWrap = document.getElementById("infoCardWrap");
+  const doctorGrid = document.getElementById("doctorGrid");
+  const doctorsLabel = document.getElementById("doctorsLabel");
+
+  function getInitials(name) {
+    return (name || "")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(w => w[0].toUpperCase())
+      .join("");
+  }
+
+  function renderSkeletons() {
+    doctorGrid.innerHTML = Array.from({ length: 4 })
+      .map(() => `<div class="skeleton"></div>`)
+      .join("");
+  }
+
+  function renderMissingOrg() {
+    bannerWrap.innerHTML = "";
+    infoCardWrap.innerHTML = "";
+    doctorsLabel.style.display = "none";
+    doctorGrid.innerHTML = `
+      <div class="state-box" style="grid-column: 1 / -1;">
+        <h3>Clinic not found</h3>
+        <p>This link may be broken or the clinic is no longer listed.</p>
+      </div>`;
+  }
+
+  function renderBanner(org) {
+    const photo = org.photo_url
+      ? `<img class="org-photo-lg" src="${org.photo_url}" alt="${org.name}">`
+      : `<div class="org-initials-lg">${getInitials(org.name)}</div>`;
+
+    bannerWrap.innerHTML = `
+      <div class="org-banner">
+        <div class="org-banner-inner">
+          ${photo}
+          <div>
+            <h1>${org.name}</h1>
+            <div class="org-meta">
+              ${org.address ? `<span>${org.address}</span>` : ""}
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderInfoCard(org) {
+    const items = [];
+    if (org.address) items.push(`<div class="info-item"><span class="info-label">Address</span><span class="info-value">${org.address}</span></div>`);
+    if (org.phone) items.push(`<div class="info-item"><span class="info-label">Phone</span><span class="info-value">${org.phone}</span></div>`);
+    if (org.whatsapp_number) {
+      const waLink = `https://wa.me/${org.whatsapp_number.replace(/[^0-9]/g, "")}`;
+      items.push(`<div class="info-item"><span class="info-label">WhatsApp</span><a class="info-value whatsapp-link" href="${waLink}" target="_blank" rel="noopener">Message clinic →</a></div>`);
+    }
+
+    infoCardWrap.innerHTML = items.length
+      ? `<div class="info-card">${items.join("")}</div>`
+      : "";
+  }
+
+  function renderDoctors(doctors) {
+    if (!doctors.length) {
+      doctorGrid.innerHTML = `
+        <div class="state-box" style="grid-column: 1 / -1;">
+          <h3>No doctors listed yet</h3>
+          <p>Check back soon, or contact the clinic directly.</p>
+        </div>`;
+      return;
+    }
+
+    doctorGrid.innerHTML = doctors.map(doc => {
+      const photo = doc.photo_url
+        ? `<img class="doctor-photo" src="${doc.photo_url}" alt="${doc.full_name}">`
+        : `<div class="doctor-initials">${getInitials(doc.full_name)}</div>`;
+
+      return `
+        <a class="doctor-card" href="book.html?doctor=${doc.id}&org=${orgId}" tabindex="0">
+          <div class="doctor-top">
+            ${photo}
+            <div>
+              <div class="doctor-name">${doc.full_name}</div>
+              ${doc.specialty ? `<div class="doctor-specialty">${doc.specialty}</div>` : ""}
+            </div>
+          </div>
+          <div class="doctor-footer">
+            <div class="today-badge">
+              <span class="pulse-dot"></span>
+              Open for booking
+            </div>
+            <span class="view-link">Book →</span>
+          </div>
+        </a>`;
+    }).join("");
+  }
+
+  async function loadOrgAndDoctors() {
+    if (!orgId) {
+      renderMissingOrg();
+      return;
+    }
+
+    renderSkeletons();
+
+    try {
+      const { data: org, error: orgError } = await supabase
+        .from("organizations")
+        .select("id, name, address, phone, whatsapp_number, photo_url")
+        .eq("id", orgId)
+        .single();
+
+      if (orgError || !org) {
+        renderMissingOrg();
+        return;
+      }
+
+      renderBanner(org);
+      renderInfoCard(org);
+
+      const { data: doctors, error: docError } = await supabase
+        .from("staff")
+        .select("id, full_name, photo_url, specialty")
+        .eq("org_id", orgId)
+        .eq("role", "doctor")
+        .eq("is_active", true)
+        .order("full_name", { ascending: true });
+
+      if (docError) throw docError;
+
+      doctorsLabel.textContent = `${(doctors || []).length} doctor${(doctors || []).length === 1 ? "" : "s"}`;
+      renderDoctors(doctors || []);
+    } catch (err) {
+      console.error(err);
+      doctorGrid.innerHTML = `
+        <div class="state-box" style="grid-column: 1 / -1;">
+          <h3>Couldn't load this clinic</h3>
+          <p>Please check your connection and try again.</p>
+        </div>`;
+    }
+  }
+
+  loadOrgAndDoctors();
+</script>
+
+</body>
+</html>
