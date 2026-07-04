@@ -6,6 +6,10 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+function getTodayStr() {
+  return new Date().toISOString().split("T")[0];
+}
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const META_VERIFY_TOKEN = Deno.env.get("META_VERIFY_TOKEN")!; // you choose this string, set it in Meta app settings too
@@ -171,7 +175,7 @@ async function executeTool(name: string, input: any, orgId: string) {
         .from("schedules")
         .select("id, slot_date, start_time, capacity, booked_count")
         .eq("staff_id", doctorId)
-        .gte("slot_date", new Date().toISOString().split("T")[0])
+        .gte("slot_date", getTodayStr())
         .order("slot_date", { ascending: true })
         .order("start_time", { ascending: true })
         .limit(10);
@@ -246,6 +250,7 @@ async function executeTool(name: string, input: any, orgId: string) {
 // ---------------------------------------------------------------------------
 async function runClaude(messages: any[], orgId: string) {
   let convo = [...messages];
+  const todayStr = getTodayStr();
 
   for (let turn = 0; turn < 5; turn++) {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
