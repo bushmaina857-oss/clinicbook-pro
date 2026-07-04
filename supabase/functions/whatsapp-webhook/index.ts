@@ -263,7 +263,7 @@ async function runClaude(messages: any[], orgId: string) {
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
         max_tokens: 700,
-        system: SYSTEM_PROMPT,
+        system: SYSTEM_PROMPT + `\n\nToday's date is ${todayStr}. Use this to correctly resolve relative dates like "tomorrow", "next week", or "Monday" when calling tools or replying to the patient.`,
         tools: TOOLS,
         messages: convo,
       }),
