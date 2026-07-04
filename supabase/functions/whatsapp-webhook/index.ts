@@ -173,7 +173,7 @@ async function executeTool(name: string, input: any, orgId: string) {
 
       let query = supabase
         .from("schedules")
-        .select("id, slot_date, start_time, capacity, booked_count")
+        .select("id, slot_date, start_time, max_capacity, booked_count")
         .eq("staff_id", doctorId)
         .gte("slot_date", getTodayStr())
         .order("slot_date", { ascending: true })
@@ -183,7 +183,7 @@ async function executeTool(name: string, input: any, orgId: string) {
       if (input.date) query = query.eq("slot_date", input.date);
       const { data } = await query;
 
-      const open = (data || []).filter((s) => s.booked_count < s.capacity);
+      const open = (data || []).filter((s) => s.booked_count < s.max_capacity);
       return { doctor: doctors[0].full_name, slots: open };
     }
 
