@@ -161,12 +161,13 @@ async function executeTool(name: string, input: any, orgId: string) {
     }
 
     case "check_availability": {
+      const cleanedName = input.doctor_name.replace(/^dr\.?\s*/i, "").trim(); // strip "Dr." prefix if present
       const { data: doctors } = await supabase
         .from("staff")
         .select("id, full_name")
         .eq("org_id", orgId)
         .eq("role", "doctor")
-        .ilike("full_name", `%${input.doctor_name}%`);
+        .ilike("full_name", `%${cleanedName}%`);
 
       if (!doctors || doctors.length === 0) return { error: "Doctor not found" };
       const doctorId = doctors[0].id;
