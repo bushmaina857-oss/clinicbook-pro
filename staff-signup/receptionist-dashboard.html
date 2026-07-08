@@ -339,7 +339,7 @@
     // ---------- TODAY'S APPOINTMENTS ----------
     function fetchTodayAppointments(orgId) {
       return fetch(SUPABASE_URL + '/rest/v1/appointments?org_id=eq.' + orgId +
-        '&select=id,patient_name,patient_phone,status,queue_number,staff_id,schedules(slot_date,start_time,end_time),staff(full_name,specialty)' +
+        '&select=id,patient_name,patient_phone,status,queue_number,staff_id,schedules(slot_date,start_time,end_time),staff!appointments_staff_id_fkey(full_name,specialty)'  +
         '&schedules.slot_date=eq.' + today,
         { headers: authHeaders }
       ).then(safeJson).then(function(rows) {
@@ -590,7 +590,7 @@
       container.innerHTML = '<div class="skel" style="height:60px;border-radius:12px;"></div>';
 
       fetch(SUPABASE_URL + '/rest/v1/appointments?patient_phone=eq.' + encodeURIComponent(phone) + '&org_id=eq.' + myOrgId +
-        '&select=id,patient_name,patient_reason,status,queue_number,schedules(slot_date,start_time,end_time),staff(full_name,specialty)' +
+        '&select=id,patient_name,patient_reason,status,queue_number,schedules(slot_date,start_time,end_time),staff!appointments_staff_id_fkey(full_name,specialty)'  +
         '&order=created_at.desc',
         { headers: authHeaders }
       ).then(safeJson).then(function(appts) {
