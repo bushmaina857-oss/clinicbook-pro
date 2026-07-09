@@ -344,7 +344,7 @@
 
     const slotsForDate = byDate[selectedDateKey] || [];
     const slotButtons = slotsForDate.map(s => {
-      const full = s.booked_count >= s.capacity;
+      const full = s.booked_count >= s.max_capacity;
       return `
         <button type="button" class="slot-btn ${selectedSchedule && selectedSchedule.id === s.id ? "selected" : ""}"
           data-id="${s.id}" ${full ? "disabled" : ""}>
@@ -494,7 +494,7 @@
 
       const { data: scheduleData, error: scheduleError } = await supabase
         .from("schedules")
-        .select("id, slot_date, start_time, end_time, capacity, booked_count")
+        .select("id, slot_date, start_time, end_time, max_capacity, booked_count")
         .eq("staff_id", doctorId)
         .gte("slot_date", todayStr)
         .order("slot_date", { ascending: true })
