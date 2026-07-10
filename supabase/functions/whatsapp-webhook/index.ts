@@ -1,8 +1,12 @@
 // supabase/functions/whatsapp-webhook/index.ts
 //
-// ClinicBook Pro — WhatsApp AI Receptionist (v2)
-// Adds: fail-safe scheduling (never guess), structured handoff summaries,
-// cancellation → waitlist recovery, and a per-conversation audit trail.
+// ClinicBook Pro — WhatsApp AI Receptionist (v3)
+// Base: v2 (fail-safe scheduling, structured handoff summaries,
+// cancellation → waitlist recovery, per-conversation audit trail) — unchanged.
+// New in v3: bare "CANCEL" keyword handling and numeric-reply resolution for
+// patients with more than one upcoming appointment. Both short-circuit BEFORE
+// Claude is invoked, since they're fixed keywords, not something needing
+// AI interpretation — everything else below is untouched from v2.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -281,7 +285,7 @@ async function executeTool(name: string, input: any, orgId: string, patientPhone
       // Fail-safe: re-verify the slot is genuinely still open before inserting.
       const { data: schedule } = await supabase
         .from("schedules")
-        .select("id, max_capacity, booked_count, slot_date")
+        .select("id, staff_id, max_capacity, booked_count, slot_date")
         .eq("id", input.schedule_id)
         .single();
 
@@ -295,6 +299,7 @@ async function executeTool(name: string, input: any, orgId: string, patientPhone
         .insert({
           org_id: orgId,
           schedule_id: input.schedule_id,
+          staff_id: schedule.staff_id,
           patient_name: input.patient_name,
           patient_phone: input.patient_phone,
           patient_reason: input.reason || null,
@@ -545,6 +550,54 @@ async function saveConversation(
 }
 
 // ---------------------------------------------------------------------------
+// NEW in v3 — CANCEL keyword support
+// ---------------------------------------------------------------------------
+// Two-step lookup (appointments -> schedules -> staff) instead of a nested
+// PostgREST join, to avoid the FK-ambiguity issue already hit and fixed
+// elsewhere in this project.
+async function getUpcomingAppointmentsForCancel(orgId: string, phone: string) {
+  const { data: appts } = await supabase
+    .from("appointments")
+    .select("id, schedule_id")
+    .eq("org_id", orgId)
+    .eq("patient_phone", phone)
+    .eq("status", "confirmed");
+
+  if (!appts || appts.length === 0) return [];
+
+  const scheduleIds = appts.map((a) => a.schedule_id);
+  const { data: schedules } = await supabase
+    .from("schedules")
+    .select("id, staff_id, slot_date, start_time")
+    .in("id", scheduleIds)
+    .gte("slot_date", getTodayStr());
+
+  const scheduleMap = new Map((schedules || []).map((s) => [s.id, s]));
+  const staffIds = [...new Set((schedules || []).map((s) => s.staff_id))];
+
+  const { data: staffRows } = staffIds.length
+    ? await supabase.from("staff").select("id, full_name").in("id", staffIds)
+    : { data: [] as any[] };
+  const staffMap = new Map((staffRows || []).map((s) => [s.id, s.full_name]));
+
+  const combined = appts
+    .map((a) => {
+      const sched = scheduleMap.get(a.schedule_id);
+      if (!sched) return null; // schedule is in the past or missing — skip
+      return {
+        appointment_id: a.id,
+        slot_date: sched.slot_date,
+        start_time: sched.start_time,
+        doctor_name: staffMap.get(sched.staff_id) || "Unknown",
+      };
+    })
+    .filter(Boolean) as { appointment_id: string; slot_date: string; start_time: string; doctor_name: string }[];
+
+  combined.sort((a, b) => (a.slot_date + a.start_time).localeCompare(b.slot_date + b.start_time));
+  return combined;
+}
+
+// ---------------------------------------------------------------------------
 // Main handler
 // ---------------------------------------------------------------------------
 Deno.serve(async (req) => {
@@ -587,6 +640,109 @@ Deno.serve(async (req) => {
       if (!org) {
         console.error("No organization mapped to phone_number_id:", metaPhoneNumberId);
         return new Response("OK", { status: 200 });
+      }
+
+      // -----------------------------------------------------------------
+      // NEW in v3: bare "CANCEL" keyword — short-circuit before Claude.
+      // This is a fixed keyword, not something needing AI interpretation,
+      // so it's handled here rather than added as a Claude tool.
+      // -----------------------------------------------------------------
+      const normalizedText = text.trim().toUpperCase();
+
+      if (normalizedText === "CANCEL") {
+        const upcoming = await getUpcomingAppointmentsForCancel(org.id, from);
+
+        if (upcoming.length === 0) {
+          await sendWhatsAppMessage(from, "I couldn't find an upcoming appointment to cancel for this number.");
+          return new Response("OK", { status: 200 });
+        }
+
+        if (upcoming.length > 1) {
+          const list = upcoming
+            .map((a, i) => `${i + 1}. Dr. ${a.doctor_name} — ${a.slot_date} at ${a.start_time}`)
+            .join("\n");
+
+          await sendWhatsAppMessage(
+            from,
+            `You have more than one upcoming appointment. Reply with the number to cancel:\n\n${list}`
+          );
+
+          await supabase.from("pending_cancellations").upsert(
+            {
+              patient_phone: from,
+              org_id: org.id,
+              appointment_ids: upcoming.map((a) => a.appointment_id),
+              created_at: new Date().toISOString(),
+            },
+            { onConflict: "patient_phone,org_id" }
+          );
+
+          return new Response("OK", { status: 200 });
+        }
+
+        // Exactly one upcoming appointment — cancel it directly, reusing the
+        // existing cancel_appointment tool so waitlist offering + audit
+        // logging happen exactly as they do when Claude calls it.
+        const result = await executeTool(
+          "cancel_appointment",
+          { appointment_id: upcoming[0].appointment_id },
+          org.id,
+          from
+        );
+
+        await sendWhatsAppMessage(
+          from,
+          result.success
+            ? "Your appointment has been cancelled. Let us know if you'd like to rebook."
+            : "Sorry, I couldn't cancel that appointment. Please contact the clinic directly."
+        );
+
+        return new Response("OK", { status: 200 });
+      }
+
+      // -----------------------------------------------------------------
+      // NEW in v3: numeric reply — resolves a pending multi-appointment
+      // cancellation that was set up above. If there's no pending record,
+      // fall through to normal Claude handling, since a bare number could
+      // just be a legitimate patient message (e.g. an age or a date).
+      // -----------------------------------------------------------------
+      if (/^\d+$/.test(normalizedText)) {
+        const { data: pending } = await supabase
+          .from("pending_cancellations")
+          .select("appointment_ids")
+          .eq("patient_phone", from)
+          .eq("org_id", org.id)
+          .maybeSingle();
+
+        if (pending) {
+          const index = parseInt(normalizedText, 10) - 1;
+          const appointmentIds: string[] = pending.appointment_ids || [];
+
+          if (index < 0 || index >= appointmentIds.length) {
+            await sendWhatsAppMessage(from, `Please reply with a number between 1 and ${appointmentIds.length}.`);
+            return new Response("OK", { status: 200 });
+          }
+
+          const result = await executeTool(
+            "cancel_appointment",
+            { appointment_id: appointmentIds[index] },
+            org.id,
+            from
+          );
+
+          await supabase.from("pending_cancellations").delete().eq("patient_phone", from).eq("org_id", org.id);
+
+          await sendWhatsAppMessage(
+            from,
+            result.success
+              ? "That appointment has been cancelled. Let us know if you'd like to rebook."
+              : "Sorry, I couldn't cancel that appointment. Please contact the clinic directly."
+          );
+
+          return new Response("OK", { status: 200 });
+        }
+        // No pending cancellation on record — fall through below to normal
+        // Claude handling.
       }
 
       const convo = await loadConversation(from, org.id);
