@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ClinicBook Pro — Front Desk</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #F7F9FB; --white: #fff; --navy: #0D1B2A;
+      --teal: #0A7EA4; --teal-light: #E6F4F9;
+      --text: #1A2636; --muted: #6B7A8D;
+      --border: #DDE3EA; --radius: 14px;
+      --card-shadow: 0 2px 12px rgba(13,27,42,0.07);
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 80px; }
+
+    header {
+      background: var(--navy); padding: 0 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px; position: sticky; top: 0; z-index: 100;
+    }
+    .logo { font-family: 'DM Serif Display', serif; font-size: 20px; color: #fff; letter-spacing: -0.5px; }
+    .logo span { color: var(--teal); }
+    .logout-btn {
+      font-size: 13px; color: rgba(255,255,255,0.6); cursor: pointer;
+      background: none; border: none; font-family: 'Inter', sans-serif;
+      padding: 6px 12px; border-radius: 8px; transition: all 0.15s;
+    }
+    .logout-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+    .welcome { background: var(--navy); padding: 20px 24px 28px; display: flex; align-items: flex-start; justify-content: space-between; }
+    .welcome-name { font-family: 'DM Serif Display', serif; font-size: 22px; color: #fff; margin-bottom: 4px; }
+    .welcome-sub { font-size: 13px; color: rgba(255,255,255,0.5); }
+    .live-pulse {
+      display: flex; align-items: center; gap: 7px; font-size: 11px; color: rgba(255,255,255,0.5);
+      font-family: 'Inter', sans-serif; margin-top: 4px;
+    }
+    .pulse-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--teal);
+      box-shadow: 0 0 0 0 rgba(10,126,164,0.5); animation: pulse 2.2s ease-out infinite;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(10,126,164,0.45); }
+      70% { box-shadow: 0 0 0 8px rgba(10,126,164,0); }
+      100% { box-shadow: 0 0 0 0 rgba(10,126,164,0); }
+    }
+    @media (prefers-reduced-motion: reduce) { .pulse-dot { animation: none; } }
+
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 20px 24px 0; }
+    .stat-card { background: var(--white); border-radius: 12px; padding: 14px 12px; text-align: center; box-shadow: var(--card-shadow); }
+    .stat-num { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--navy); }
+    .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; font-weight: 500; }
+    .stat-card.amber .stat-num { color: #D97706; }
+
+    .view-tabs { display: flex; gap: 0; padding: 20px 24px 0; border-bottom: 1px solid var(--border); }
+    .view-tab {
+      flex: 1; padding: 10px 6px; text-align: center;
+      font-size: 13px; font-weight: 500; color: var(--muted);
+      cursor: pointer; border-bottom: 2px solid transparent;
+      transition: all 0.15s; background: none; border-top: none;
+      border-left: none; border-right: none; font-family: 'Inter', sans-serif;
+    }
+    .view-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+    .view-panel { display: none; }
+    .view-panel.active { display: block; }
+
+    .section { padding: 20px 24px 0; }
+
+    /* ---------- Conversations ---------- */
+    .convo-list-item {
+      background: var(--white); border-radius: 12px; box-shadow: var(--card-shadow);
+      padding: 13px 14px; margin-bottom: 8px; cursor: pointer; border-left: 4px solid var(--border);
+    }
+    .convo-list-item.paused { border-left-color: #D97706; }
+    .convo-list-item.escalated { border-left-color: #DC2626; }
+    .convo-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .convo-name { font-size: 14px; font-weight: 600; }
+    .convo-time { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .convo-preview { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+    .badge-row { display: flex; gap: 6px; margin-top: 6px; }
+    .mini-badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 50px; text-transform: uppercase; letter-spacing: 0.03em; }
+    .mini-badge.unread { background: var(--teal); color: #fff; }
+    .mini-badge.paused { background: #FEF3C7; color: #D97706; }
+    .mini-badge.escalated { background: #FEE2E2; color: #DC2626; }
+
+    .convo-detail-overlay {
+      position: fixed; inset: 0; background: rgba(13,27,42,0.5); z-index: 500;
+      display: none; align-items: flex-end; justify-content: center;
+    }
+    .convo-detail-overlay.active { display: flex; }
+    .convo-detail {
+      background: var(--white); width: 100%; max-width: 480px; max-height: 85vh;
+      border-radius: 20px 20px 0 0; display: flex; flex-direction: column; overflow: hidden;
+    }
+    .convo-detail-header { padding: 16px 18px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .convo-detail-header h3 { font-family: 'DM Serif Display', serif; font-size: 17px; }
+    .convo-detail-header .phone { font-size: 12px; color: var(--muted); }
+    .close-detail-btn { background: none; border: none; font-size: 20px; color: var(--muted); cursor: pointer; }
+    .escalation-banner { margin: 0; padding: 10px 18px; background: #FEE2E2; color: #991B1B; font-size: 12.5px; border-bottom: 1px solid var(--border); }
+    .toggle-ai-btn {
+      appearance: none; border: 1.5px solid var(--border); background: var(--white);
+      border-radius: 50px; padding: 7px 14px; font-size: 12.5px; font-weight: 600;
+      cursor: pointer; font-family: 'Inter', sans-serif;
+    }
+    .toggle-ai-btn.is-paused { background: #FEF3C7; border-color: #FCD34D; color: #92400E; }
+    .toggle-ai-btn.is-active { background: var(--teal-light); border-color: var(--teal); color: var(--teal); }
+    .messages { flex: 1; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+    .msg { max-width: 75%; padding: 9px 13px; border-radius: 14px; font-size: 13.5px; line-height: 1.4; }
+    .msg.user { align-self: flex-start; background: var(--teal-light); border-bottom-left-radius: 3px; }
+    .msg.assistant { align-self: flex-end; background: #F1F0EC; border-bottom-right-radius: 3px; }
+
+    /* ---------- Appointments ---------- */
+    .toolbar { display: flex; align-items: center; gap: 10px; }
+    .date-input { font-size: 13px; border: 1.5px solid var(--border); border-radius: 8px; padding: 9px 11px; background: var(--white); font-family: 'Inter', sans-serif; }
+    .today-btn { appearance: none; border: 1.5px solid var(--teal); background: var(--teal-light); color: var(--teal); border-radius: 8px; padding: 8px 13px; font-size: 13px; font-weight: 600; cursor: pointer; }
+
+    .appt-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+    .mark-seen-btn {
+      appearance: none; border: none; background: var(--teal); color: #fff;
+      border-radius: 8px; padding: 6px 11px; font-size: 11.5px; font-weight: 600; cursor: pointer;
+      font-family: 'Inter', sans-serif; white-space: nowrap;
+    }
+    .mark-seen-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ---------- Waitlist ---------- */
+    .wl-day-header { font-family: 'DM Serif Display', serif; font-size: 16px; margin: 16px 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--teal); }
+    .wl-card {
+      background: var(--white); border-radius: 12px; box-shadow: var(--card-shadow);
+      padding: 13px 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .wl-name { font-size: 14px; font-weight: 600; }
+    .wl-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    .skel { background: linear-gradient(90deg,#eee 25%,#f5f5f5 50%,#eee 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 8px; }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+    .empty { text-align: center; padding: 30px 0; }
+    .empty p { font-size: 13px; color: var(--muted); }
+
+    .error-box { margin: 16px 24px; padding: 14px 16px; background: #FEE2E2; border: 1.5px solid #FCA5A5; border-radius: 10px; font-size: 14px; color: #991B1B; display: none; }
+
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #ffffff; border-top: 2px solid #DDE3EA; display: flex; height: 64px; z-index: 999; box-shadow: 0 -2px 12px rgba(0,0,0,0.08); }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #6B7A8D; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; border: none; background: none; cursor: pointer; padding: 8px 4px; }
+    .nav-item img { width: 22px; height: 22px; }
+    .nav-item.active { color: #0A7EA4; }
+
+    /* ---------- Access denied ---------- */
+    #access-denied {
+      display: none; min-height: 100vh; align-items: center; justify-content: center;
+      flex-direction: column; gap: 14px; padding: 24px; text-align: center;
+    }
+    #access-denied p { color: var(--muted); font-size: 14px; max-width: 320px; }
+    #access-denied a {
+      display: inline-block; background: var(--teal); color: #fff; text-decoration: none;
+      padding: 10px 20px; border-radius: 10px; font-size: 13.5px; font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+<div id="access-denied">
+  <div class="logo" style="color:var(--navy);">Clinic<span style="color:var(--teal);">Book</span></div>
+  <p id="access-denied-msg">Checking your access…</p>
+  <a href="#" id="access-denied-link" style="display:none;">Go to my dashboard</a>
+</div>
+
+<div id="app-shell" style="display:none;">
+
+  <header>
+    <div class="logo">Clinic<span>Book</span></div>
+    <button class="logout-btn" id="logoutBtn">Sign out</button>
+  </header>
+
+  <div class="welcome">
+    <div>
+      <div class="welcome-name">Front Desk</div>
+      <div class="welcome-sub" id="welcomeSub">Loading…</div>
+    </div>
+    <div class="live-pulse"><span class="pulse-dot"></span> Auto-refreshing</div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card"><div class="stat-num" id="statConvos">&mdash;</div><div class="stat-label">Conversations</div></div>
+    <div class="stat-card"><div class="stat-num" id="statAppts">&mdash;</div><div class="stat-label">Today's Appts</div></div>
+    <div class="stat-card amber"><div class="stat-num" id="statWaitlist">&mdash;</div><div class="stat-label">Waitlisted</div></div>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="view-tabs">
+    <button class="view-tab active" id="tabConvos">Conversations</button>
+    <button class="view-tab" id="tabAppts">Appointments</button>
+    <button class="view-tab" id="tabWaitlist">Waitlist</button>
+  </div>
+
+  <!-- ===================== CONVERSATIONS ===================== -->
+  <div class="view-panel active" id="panelConvos">
+    <div class="section">
+      <div id="convoContainer"><div class="skel" style="height:70px;border-radius:12px;margin-bottom:8px;"></div></div>
+    </div>
+  </div>
+
+  <!-- ===================== APPOINTMENTS ===================== -->
+  <div class="view-panel" id="panelAppts">
+    <div class="section">
+      <div class="toolbar">
+        <input type="date" id="apptDate" class="date-input" />
+        <button class="today-btn" id="apptTodayBtn">Today</button>
+      </div>
+      <div id="apptContainer" style="margin-top:16px;"><div class="skel" style="height:70px;border-radius:12px;"></div></div>
+    </div>
+  </div>
+
+  <!-- ===================== WAITLIST ===================== -->
+  <div class="view-panel" id="panelWaitlist">
+    <div class="section">
+      <div id="waitlistContainer"><div class="skel" style="height:70px;border-radius:12px;"></div></div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <a class="nav-item" id="dashboardNavLink" href="#">
+      <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%236B7A8D' stroke-width='2' viewBox='0 0 24 24'><rect x='3' y='3' width='7' height='7' rx='1'/><rect x='14' y='3' width='7' height='7' rx='1'/><rect x='3' y='14' width='7' height='7' rx='1'/><rect x='14' y='14' width='7' height='7' rx='1'/></svg>" alt=""/>
+      <span>Dashboard</span>
+    </a>
+    <a class="nav-item active" href="front-desk.html">
+      <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%230A7EA4' stroke-width='2' viewBox='0 0 24 24'><path d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/><path d='M9 22V12h6v10'/></svg>" alt=""/>
+      <span>Front Desk</span>
+    </a>
+  </nav>
+
+</div>
+
+<div class="convo-detail-overlay" id="convoOverlay">
+  <div class="convo-detail" id="convoDetail"></div>
+</div>
+
+<script>
+  var SUPABASE_URL = 'https://iyxumauddvmdfbukrzaa.supabase.co';
+  var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5eHVtYXVkZHZtZGZidWtyemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NDk5MTUsImV4cCI6MjA5ODIyNTkxNX0.5B2LHcgRdrRrJbrjKWbK-kqUUlHnws7nxl1fNeZrvHE';
+
+  var session = null;
+  try { session = JSON.parse(localStorage.getItem('clinicbook_pro_session')); } catch(e) {}
+  if (!session || !session.access_token) { window.location.href = 'staff-login.html'; }
+
+  var authHeaders = {
+    'apikey': SUPABASE_ANON_KEY,
+    'Authorization': 'Bearer ' + session.access_token,
+    'Content-Type': 'application/json'
+  };
+
+  var myStaffId = null;
+  var myOrgId = null;
+  var myRole = null;
+  var selectedPhone = null;
+  var conversationsCache = [];
+  var pollTimer = null;
+
+  function getLocalDateString() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  var today = getLocalDateString();
+
+  function safeJson(res) {
+    return res.text().then(function(t) {
+      var data = null;
+      try { data = t ? JSON.parse(t) : null; } catch(e) { data = t; }
+      if (!res.ok) {
+        var msg = (data && data.message) ? data.message : (typeof data === 'string' ? data : 'Request failed');
+        throw new Error(msg);
+      }
+      return data;
+    });
+  }
+
+  function formatTime(t) {
+    var parts = t.split(':');
+    var h = parseInt(parts[0]);
+    var ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return h + ':' + parts[1] + ' ' + ampm;
+  }
+  function timeAgo(iso) {
+    if (!iso) return '';
+    var diffMs = Date.now() - new Date(iso).getTime();
+    var mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'now';
+    if (mins < 60) return mins + 'm';
+    var hrs = Math.floor(mins / 60);
+    if (hrs < 24) return hrs + 'h';
+    return Math.floor(hrs / 24) + 'd';
+  }
+
+  function showDenied(msg, dashboardUrl) {
+    document.getElementById('access-denied-msg').textContent = msg;
+    var link = document.getElementById('access-denied-link');
+    if (dashboardUrl) {
+      link.href = dashboardUrl;
+      link.style.display = 'inline-block';
+    }
+    document.getElementById('access-denied').style.display = 'flex';
+  }
+
+  function dashboardUrlForRole(role) {
+    if (role === 'admin') return 'admin-dashboard.html';
+    if (role === 'doctor') return 'doctor-dashboard.html';
+    return 'receptionist-dashboard.html';
+  }
+
+  // ---------------------------------------------------------------------
+  // ACCESS GATE
+  // Receptionists and admins always get in. Doctors only get in when their
+  // org has zero active receptionists on staff (i.e. they're running the
+  // front desk themselves).
+  // ---------------------------------------------------------------------
+  function checkAccess() {
+    return fetch(SUPABASE_URL + '/rest/v1/staff?user_id=eq.' + session.user.id + '&select=id,full_name,role,org_id,is_active', {
+      headers: authHeaders
+    }).then(safeJson).then(function(rows) {
+      if (!rows.length) throw new Error('NO_STAFF_RECORD');
+      var me = rows[0];
+
+      if (!me.is_active) throw new Error('DEACTIVATED');
+
+      myStaffId = me.id;
+      myOrgId = me.org_id;
+      myRole = me.role;
+
+      if (me.role === 'admin' || me.role === 'receptionist') {
+        return me;
+      }
+
+      if (me.role === 'doctor') {
+        return fetch(SUPABASE_URL + '/rest/v1/staff?org_id=eq.' + me.org_id + '&role=eq.receptionist&is_active=eq.true&select=id&limit=1', {
+          headers: authHeaders
+        }).then(safeJson).then(function(receptionists) {
+          if (receptionists.length > 0) throw new Error('DOCTOR_HAS_RECEPTIONIST');
+          return me;
+        });
+      }
+
+      throw new Error('UNKNOWN_ROLE');
+    }).then(function(me) {
+      document.getElementById('dashboardNavLink').href = dashboardUrlForRole(me.role);
+      document.getElementById('welcomeSub').textContent =
+        me.full_name + ' — ' + (me.role.charAt(0).toUpperCase() + me.role.slice(1));
+      document.getElementById('app-shell').style.display = 'block';
+      return true;
+    }).catch(function(err) {
+      if (err.message === 'DOCTOR_HAS_RECEPTIONIST') {
+        showDenied('This page is for the front desk. Since your clinic has a receptionist, use your own patient queue instead.', 'doctor-dashboard.html');
+      } else if (err.message === 'DEACTIVATED') {
+        showDenied('Your account has been deactivated. Please contact your organization admin.', null);
+      } else if (err.message === 'NO_STAFF_RECORD' || err.message === 'UNKNOWN_ROLE') {
+        showDenied('Could not verify your staff account. Please sign in again.', null);
+        localStorage.removeItem('clinicbook_pro_session');
+      } else {
+        showDenied('Could not verify your access. Please sign in again.', null);
+      }
+      return false;
+    });
+  }
+
+  // ---------------------------------------------------------------------
+  // CONVERSATIONS TAB
+  // Real-time push isn't wired up here to keep this page on the same plain-
+  // fetch pattern as the rest of the app — instead it polls every 12s while
+  // this tab is open.
+  // ---------------------------------------------------------------------
+  function fetchConversations() {
+    return fetch(SUPABASE_URL + '/rest/v1/whatsapp_conversations?org_id=eq.' + myOrgId +
+      '&select=patient_phone,patient_name,messages,last_message_at,unread_count,ai_paused,escalation_summary' +
+      '&order=last_message_at.desc',
+      { headers: authHeaders }
+    ).then(safeJson);
+  }
+
+  function renderConvoList() {
+    var container = document.getElementById('convoContainer');
+    document.getElementById('statConvos').textContent = conversationsCache.length;
+
+    if (!conversationsCache.length) {
+      container.innerHTML = '<div class="empty"><p>No conversations yet.</p></div>';
+      return;
+    }
+
+    container.innerHTML = '';
+    conversationsCache.forEach(function(c) {
+      var lastMsg = (c.messages && c.messages.length) ? c.messages[c.messages.length - 1].content : '';
+      var item = document.createElement('div');
+      item.className = 'convo-list-item' + (c.escalation_summary ? ' escalated' : (c.ai_paused ? ' paused' : ''));
+
+      var top = document.createElement('div');
+      top.className = 'convo-top';
+      var name = document.createElement('span');
+      name.className = 'convo-name';
+      name.textContent = c.patient_name || c.patient_phone;
+      var time = document.createElement('span');
+      time.className = 'convo-time';
+      time.textContent = timeAgo(c.last_message_at);
+      top.appendChild(name);
+      top.appendChild(time);
+
+      var preview = document.createElement('div');
+      preview.className = 'convo-preview';
+      preview.textContent = (lastMsg || '').toString().slice(0, 70);
+
+      var badges = document.createElement('div');
+      badges.className = 'badge-row';
+      if (c.unread_count > 0) {
+        var b1 = document.createElement('span');
+        b1.className = 'mini-badge unread';
+        b1.textContent = c.unread_count;
+        badges.appendChild(b1);
+      }
+      if (c.ai_paused) {
+        var b2 = document.createElement('span');
+        b2.className = 'mini-badge paused';
+        b2.textContent = 'AI paused';
+        badges.appendChild(b2);
+      }
+      if (c.escalation_summary) {
+        var b3 = document.createElement('span');
+        b3.className = 'mini-badge escalated';
+        b3.textContent = 'Escalated';
+        badges.appendChild(b3);
+      }
+
+      item.appendChild(top);
+      item.appendChild(preview);
+      if (badges.children.length) item.appendChild(badges);
+
+      item.addEventListener('click', function() { openConversation(c.patient_phone); });
+      container.appendChild(item);
+    });
+  }
+
+  function openConversation(phone) {
+    selectedPhone = phone;
+    var convo = conversationsCache.find(function(c) { return c.patient_phone === phone; });
+    if (!convo) return;
+
+    var messagesHtml = (convo.messages || []).map(function(m) {
+      return '<div class="msg ' + (m.role === 'user' ? 'user' : 'assistant') + '">' + m.content + '</div>';
+    }).join('');
+
+    var escalationHtml = convo.escalation_summary
+      ? '<div class="escalation-banner"><b>Escalated:</b> ' +
+        (convo.escalation_summary.needs_human_for || convo.escalation_summary.reason_category || 'See conversation') +
+        (convo.escalation_summary.priority ? ' — priority: ' + convo.escalation_summary.priority : '') + '</div>'
+      : '';
+
+    var detail = document.getElementById('convoDetail');
+    detail.innerHTML =
+      '<div class="convo-detail-header">' +
+        '<div><h3>' + (convo.patient_name || 'Unknown patient') + '</h3><div class="phone">' + convo.patient_phone + '</div></div>' +
+        '<button class="close-detail-btn" id="closeDetailBtn">&times;</button>' +
+      '</div>' +
+      escalationHtml +
+      '<div style="padding:12px 18px;border-bottom:1px solid var(--border);">' +
+        '<button class="toggle-ai-btn ' + (convo.ai_paused ? 'is-paused' : 'is-active') + '" id="toggleAiBtn">' +
+          (convo.ai_paused ? 'Return to AI' : 'Take over from AI') +
+        '</button>' +
+      '</div>' +
+      '<div class="messages">' + (messagesHtml || '<p style="color:var(--muted);font-size:13px;">No messages yet.</p>') + '</div>';
+
+    document.getElementById('convoOverlay').classList.add('active');
+    document.getElementById('closeDetailBtn').addEventListener('click', closeConversation);
+    document.getElementById('toggleAiBtn').addEventListener('click', function() { toggleAiPause(convo); });
+
+    if (convo.unread_count > 0) {
+      fetch(SUPABASE_URL + '/rest/v1/whatsapp_conversations?patient_phone=eq.' + encodeURIComponent(phone) + '&org_id=eq.' + myOrgId, {
+        method: 'PATCH', headers: authHeaders, body: JSON.stringify({ unread_count: 0 })
+      }).then(function() {
+        convo.unread_count = 0;
+        renderConvoList();
+      });
+    }
+  }
+
+  function closeConversation() {
+    document.getElementById('convoOverlay').classList.remove('active');
+    selectedPhone = null;
+  }
+
+  function toggleAiPause(convo) {
+    var newPaused = !convo.ai_paused;
+    fetch(SUPABASE_URL + '/rest/v1/whatsapp_conversations?patient_phone=eq.' + encodeURIComponent(convo.patient_phone) + '&org_id=eq.' + myOrgId, {
+      method: 'PATCH', headers: authHeaders, body: JSON.stringify({ ai_paused: newPaused })
+    }).then(safeJson).then(function() {
+      convo.ai_paused = newPaused;
+      openConversation(convo.patient_phone);
+      renderConvoList();
+    }).catch(function(err) { alert('Could not update: ' + err.message); });
+  }
+
+  function loadConversations() {
+    return fetchConversations().then(function(data) {
+      conversationsCache = data || [];
+      renderConvoList();
+    }).catch(function(err) { showErrorBox(err.message); });
+  }
+
+  // ---------------------------------------------------------------------
+  // APPOINTMENTS TAB
+  // Explicit FK name (appointments_staff_id_fkey) required — appointments
+  // has two FKs into staff (staff_id and booked_by_staff_id), same fix
+  // already used in receptionist-dashboard.html.
+  // ---------------------------------------------------------------------
+  function fetchAppointmentsForDate(dateStr) {
+    return fetch(SUPABASE_URL + '/rest/v1/appointments?org_id=eq.' + myOrgId +
+      '&select=id,patient_name,patient_reason,status,queue_number,is_seen,staff_id,schedules(slot_date,start_time,end_time),staff!appointments_staff_id_fkey(full_name,specialty)' +
+      '&schedules.slot_date=eq.' + dateStr,
+      { headers: authHeaders }
+    ).then(safeJson).then(function(rows) {
+      return rows.filter(function(r) { return r.schedules && r.schedules.slot_date === dateStr; });
+    });
+  }
+
+  function markAsSeen(appointmentId, dateStr) {
+    var btn = document.querySelector('.mark-seen-btn[data-appt-id="' + appointmentId + '"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Marking…'; }
+
+    fetch(SUPABASE_URL + '/rest/v1/appointments?id=eq.' + appointmentId + '&staff_id=eq.' + myStaffId, {
+      method: 'PATCH', headers: authHeaders, body: JSON.stringify({ is_seen: true })
+    }).then(safeJson).then(function() {
+      loadAppointments(dateStr);
+    }).catch(function(err) {
+      alert('Could not update: ' + err.message);
+      if (btn) { btn.disabled = false; btn.textContent = 'Mark as seen'; }
+    });
+  }
+
+  function renderAppointments(appointments, dateStr) {
+    var container = document.getElementById('apptContainer');
+    document.getElementById('statAppts').textContent = appointments.length;
+
+    if (!appointments.length) {
+      container.innerHTML = '<div class="empty"><p>No appointments for this date.</p></div>';
+      return;
+    }
+
+    var byDoctor = {};
+    var doctorOrder = [];
+    appointments.forEach(function(a) {
+      var docId = a.staff_id;
+      if (!byDoctor[docId]) { byDoctor[docId] = { doctor: a.staff, appts: [] }; doctorOrder.push(docId); }
+      byDoctor[docId].appts.push(a);
+    });
+
+    container.innerHTML = '';
+    doctorOrder.forEach(function(docId) {
+      var group = byDoctor[docId];
+      var groupEl = document.createElement('div');
+      groupEl.style.marginBottom = '20px';
+
+      var header = document.createElement('div');
+      header.className = 'wl-day-header';
+      header.textContent = (group.doctor ? 'Dr. ' + group.doctor.full_name : 'Unassigned') + ' — ' + group.appts.length + ' appt' + (group.appts.length !== 1 ? 's' : '');
+      groupEl.appendChild(header);
+
+      group.appts.sort(function(a, b) { return (a.queue_number || 0) - (b.queue_number || 0); });
+
+      group.appts.forEach(function(a) {
+        var card = document.createElement('div');
+        card.className = 'wl-card';
+
+        var left = document.createElement('div');
+        var pname = document.createElement('div');
+        pname.className = 'wl-name';
+        pname.textContent = (a.queue_number ? '#' + a.queue_number + ' — ' : '') + a.patient_name;
+        if (a.is_seen) { pname.style.textDecoration = 'line-through'; pname.style.color = 'var(--muted)'; }
+        var meta = document.createElement('div');
+        meta.className = 'wl-meta';
+        meta.textContent = (a.schedules ? formatTime(a.schedules.start_time) : '') + (a.patient_reason ? ' · ' + a.patient_reason : '');
+        left.appendChild(pname);
+        left.appendChild(meta);
+
+        var right = document.createElement('div');
+        right.className = 'appt-right';
+        var badge = document.createElement('span');
+        badge.style.cssText = 'font-size:10px;font-weight:600;padding:4px 9px;border-radius:50px;text-transform:uppercase;letter-spacing:0.04em;' +
+          (a.status === 'pending' ? 'background:#FEF3C7;color:#D97706;' : a.status === 'confirmed' ? 'background:#DCFCE7;color:#16A34A;' : 'background:#FEE2E2;color:#DC2626;');
+        badge.textContent = a.is_seen ? 'Seen' : a.status;
+        right.appendChild(badge);
+
+        var canMarkSeen = myRole === 'doctor' && a.staff_id === myStaffId && a.status === 'confirmed' && !a.is_seen;
+        if (canMarkSeen) {
+          var seenBtn = document.createElement('button');
+          seenBtn.className = 'mark-seen-btn';
+          seenBtn.setAttribute('data-appt-id', a.id);
+          seenBtn.textContent = 'Mark as seen';
+          seenBtn.addEventListener('click', function() { markAsSeen(a.id, dateStr); });
+          right.appendChild(seenBtn);
+        }
+
+        card.appendChild(left);
+        card.appendChild(right);
+        groupEl.appendChild(card);
+      });
+
+      container.appendChild(groupEl);
+    });
+  }
+
+  function loadAppointments(dateStr) {
+    var container = document.getElementById('apptContainer');
+    container.innerHTML = '<div class="skel" style="height:70px;border-radius:12px;"></div>';
+    return fetchAppointmentsForDate(dateStr).then(function(appts) {
+      renderAppointments(appts, dateStr);
+    }).catch(function(err) { showErrorBox(err.message); });
+  }
+
+  document.getElementById('apptDate').value = today;
+  document.getElementById('apptDate').addEventListener('change', function() { loadAppointments(this.value); });
+  document.getElementById('apptTodayBtn').addEventListener('click', function() {
+    document.getElementById('apptDate').value = today;
+    loadAppointments(today);
+  });
+
+  // ---------------------------------------------------------------------
+  // WAITLIST TAB
+  // ---------------------------------------------------------------------
+  function fetchWaitlist() {
+    return fetch(SUPABASE_URL + '/rest/v1/waitlist?org_id=eq.' + myOrgId +
+      '&status=in.(waiting,offered)&select=id,staff_id,patient_name,patient_phone,preferred_date,status,created_at' +
+      '&order=created_at.asc',
+      { headers: authHeaders }
+    ).then(safeJson);
+  }
+
+  function fetchStaffNames(staffIds) {
+    if (!staffIds.length) return Promise.resolve([]);
+    return fetch(SUPABASE_URL + '/rest/v1/staff?id=in.(' + staffIds.join(',') + ')&select=id,full_name', {
+      headers: authHeaders
+    }).then(safeJson);
+  }
+
+  function loadWaitlist() {
+    var container = document.getElementById('waitlistContainer');
+    container.innerHTML = '<div class="skel" style="height:70px;border-radius:12px;"></div>';
+
+    fetchWaitlist().then(function(entries) {
+      document.getElementById('statWaitlist').textContent = entries.length;
+
+      if (!entries.length) {
+        container.innerHTML = '<div class="empty"><p>Waitlist is empty.</p></div>';
+        return Promise.resolve();
+      }
+
+      var staffIds = Array.from(new Set(entries.filter(function(e) { return e.staff_id; }).map(function(e) { return e.staff_id; })));
+
+      return fetchStaffNames(staffIds).then(function(staffRows) {
+        var staffMap = {};
+        (staffRows || []).forEach(function(s) { staffMap[s.id] = s.full_name; });
+
+        var byDate = {};
+        var dateOrder = [];
+        entries.forEach(function(e) {
+          var key = e.preferred_date || 'Any day';
+          if (!byDate[key]) { byDate[key] = []; dateOrder.push(key); }
+          byDate[key].push(e);
+        });
+
+        dateOrder.sort(function(a, b) {
+          if (a === 'Any day') return 1;
+          if (b === 'Any day') return -1;
+          return a.localeCompare(b);
+        });
+
+        container.innerHTML = '';
+        dateOrder.forEach(function(dateKey) {
+          var list = byDate[dateKey];
+          var header = document.createElement('div');
+          header.className = 'wl-day-header';
+          header.textContent = (dateKey === 'Any day' ? 'Any day' : new Date(dateKey + 'T00:00:00').toDateString()) + ' — ' + list.length + ' waiting';
+          container.appendChild(header);
+
+          list.forEach(function(e) {
+            var card = document.createElement('div');
+            card.className = 'wl-card';
+            var left = document.createElement('div');
+            var name = document.createElement('div');
+            name.className = 'wl-name';
+            name.textContent = e.patient_name;
+            var meta = document.createElement('div');
+            meta.className = 'wl-meta';
+            meta.textContent = 'Dr. ' + (staffMap[e.staff_id] || 'Unknown') + ' · ' + e.patient_phone;
+            left.appendChild(name);
+            left.appendChild(meta);
+
+            var badge = document.createElement('span');
+            badge.style.cssText = 'font-size:10px;font-weight:600;padding:4px 9px;border-radius:50px;text-transform:uppercase;' +
+              (e.status === 'waiting' ? 'background:#FEF3C7;color:#D97706;' : 'background:var(--teal-light);color:var(--teal);');
+            badge.textContent = e.status;
+
+            card.appendChild(left);
+            card.appendChild(badge);
+            container.appendChild(card);
+          });
+        });
+      });
+    }).catch(function(err) { showErrorBox(err.message); });
+  }
+
+  // ---------------------------------------------------------------------
+  // TAB SWITCHING
+  // ---------------------------------------------------------------------
+  function switchTab(tabId, panelId) {
+    document.querySelectorAll('.view-tab').forEach(function(t) { t.classList.remove('active'); });
+    document.querySelectorAll('.view-panel').forEach(function(p) { p.classList.remove('active'); });
+    document.getElementById(tabId).classList.add('active');
+    document.getElementById(panelId).classList.add('active');
+  }
+  document.getElementById('tabConvos').addEventListener('click', function() { switchTab('tabConvos', 'panelConvos'); });
+  document.getElementById('tabAppts').addEventListener('click', function() { switchTab('tabAppts', 'panelAppts'); });
+  document.getElementById('tabWaitlist').addEventListener('click', function() {
+    switchTab('tabWaitlist', 'panelWaitlist');
+    loadWaitlist();
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', function() {
+    if (pollTimer) clearInterval(pollTimer);
+    localStorage.removeItem('clinicbook_pro_session');
+    window.location.href = 'staff-login.html';
+  });
+
+  function showErrorBox(msg) {
+    var el = document.getElementById('errorBox');
+    el.textContent = msg; el.style.display = 'block';
+  }
+
+  // ---------------------------------------------------------------------
+  // INIT
+  // ---------------------------------------------------------------------
+  checkAccess().then(function(allowed) {
+    if (!allowed) return;
+
+    loadConversations();
+    loadAppointments(today);
+    loadWaitlist();
+
+    pollTimer = setInterval(loadConversations, 12000);
+  }).catch(function(err) {
+    if (err.message && (err.message.indexOf('JWT') !== -1 || err.message.indexOf('token') !== -1)) {
+      localStorage.removeItem('clinicbook_pro_session');
+      window.location.href = 'staff-login.html';
+    }
+    console.error(err);
+  });
+</script>
+
+</body>
+</html>
