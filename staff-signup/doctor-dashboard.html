@@ -676,36 +676,49 @@
       });
     }
 
-    document.getElementById('addSlotBtn').addEventListener('click', function() {
-      var date = document.getElementById('slotDate').value;
-      var start = document.getElementById('startTime').value;
-      var end = document.getElementById('endTime').value;
-      var capacity = parseInt(document.getElementById('maxCapacity').value);
-      var btn = document.getElementById('addSlotBtn');
+document.getElementById('addSlotBtn').addEventListener('click', function() {
+  var date = document.getElementById('slotDate').value;
+  var start = document.getElementById('startTime').value;
+  var end = document.getElementById('endTime').value;
+  var capacity = parseInt(document.getElementById('maxCapacity').value);
+  var btn = document.getElementById('addSlotBtn');
 
-      if (!date) { showErrorToast('Please select a date.'); return; }
-      if (!start) { showErrorToast('Please set a start time.'); return; }
-      if (!end) { showErrorToast('Please set an end time.'); return; }
-      if (end <= start) { showErrorToast('End time must be after start time.'); return; }
+  if (!date) { showErrorToast('Please select a date.'); return; }
+  if (!start) { showErrorToast('Please set a start time.'); return; }
+  if (!end) { showErrorToast('Please set an end time.'); return; }
+  if (end <= start) { showErrorToast('End time must be after start time.'); return; }
 
-      btn.disabled = true; btn.textContent = 'Adding...';
+  btn.disabled = true; btn.textContent = 'Adding...';
 
-      fetch(SUPABASE_URL + '/rest/v1/schedules', {
-        method: 'POST', headers: authHeaders,
-        body: JSON.stringify({ staff_id: myStaffId, slot_date: date, start_time: start, end_time: end, max_capacity: capacity, booked_count: 0, is_cancelled: false })
-      }).then(safeJson).then(function() {
-        showSuccessToast('Slot added successfully!');
-        document.getElementById('startTime').value = '';
-        document.getElementById('endTime').value = '';
-        return fetchSchedules();
-      }).then(function(schedules) {
-        renderSchedules(schedules);
-        btn.disabled = false; btn.textContent = 'Add Slot';
-      }).catch(function(err) {
-        showErrorToast('Error: ' + err.message);
-        btn.disabled = false; btn.textContent = 'Add Slot';
-      });
-    });
+  var insertHeaders = Object.assign({}, authHeaders, { 'Prefer': 'return=representation' });
+
+  fetch(SUPABASE_URL + '/rest/v1/schedules', {
+    method: 'POST', headers: insertHeaders,
+    body: JSON.stringify({ staff_id: myStaffId, slot_date: date, start_time: start, end_time: end, max_capacity: capacity, booked_count: 0, is_cancelled: false })
+  }).then(safeJson).then(function(rows) {
+    var newSlot = rows && rows[0];
+    if (newSlot && newSlot.id) {
+      // Fire-and-forget: check the waitlist for this doctor/date. A failure
+      // here should never block the doctor from seeing their slot was added.
+      fetch(SUPABASE_URL + '/functions/v1/notify-waitlist-on-new-slot', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ schedule_id: newSlot.id })
+      }).catch(function(err) { console.error('Waitlist notify failed:', err); });
+    }
+
+    showSuccessToast('Slot added successfully!');
+    document.getElementById('startTime').value = '';
+    document.getElementById('endTime').value = '';
+    return fetchSchedules();
+  }).then(function(schedules) {
+    renderSchedules(schedules);
+    btn.disabled = false; btn.textContent = 'Add Slot';
+  }).catch(function(err) {
+    showErrorToast('Error: ' + err.message);
+    btn.disabled = false; btn.textContent = 'Add Slot';
+  });
+});
 
     document.getElementById('logoutBtn').addEventListener('click', function() {
       localStorage.removeItem('clinicbook_pro_session');
