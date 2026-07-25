@@ -50,7 +50,6 @@
 
     .empty-note { font-size: 13px; color: var(--muted); padding: 16px 0; text-align: center; }
 
-    /* JOIN REQUEST CARDS */
     .request-card {
       background: var(--white); border-radius: var(--radius); box-shadow: var(--card-shadow);
       padding: 16px; margin-bottom: 10px; border-left: 4px solid #F59E0B;
@@ -71,14 +70,12 @@
     .req-btn.reject:hover { background: #FEE2E2; }
     .req-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* ROLE SELECT MODAL-ISH INLINE */
     .role-select-row { display: flex; gap: 8px; margin-bottom: 10px; }
     .role-select-row select {
       flex: 1; padding: 9px 10px; border-radius: 8px; border: 1.5px solid var(--border);
       font-size: 13px; font-family: 'Inter', sans-serif; background: var(--bg);
     }
 
-    /* STAFF LIST */
     .staff-card {
       background: var(--white); border-radius: 12px; box-shadow: var(--card-shadow);
       padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;
@@ -99,7 +96,6 @@
     .role-pill.doctor { background: #FEF3C7; color: #D97706; }
     .role-pill.receptionist { background: #EDE9FE; color: #7C3AED; }
 
-    /* ADD DEPARTMENT FORM */
     .add-dept-form {
       background: var(--white); border-radius: var(--radius); box-shadow: var(--card-shadow);
       padding: 16px; margin-bottom: 14px; display: flex; gap: 8px;
@@ -121,7 +117,6 @@
       font-size: 13px; font-weight: 500; color: var(--text); margin: 0 8px 8px 0;
     }
 
-    /* SKELETON */
     .skel { background: linear-gradient(90deg,#eee 25%,#f5f5f5 50%,#eee 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 8px; }
     @keyframes shimmer { to { background-position: -200% 0; } }
 
@@ -164,7 +159,6 @@
   <div class="error-box" id="errorBox"></div>
   <div class="toast" id="toast"></div>
 
-  <!-- JOIN REQUESTS -->
   <div class="section">
     <div class="section-header">
       <div class="section-title">Join Requests</div>
@@ -174,7 +168,6 @@
     </div>
   </div>
 
-  <!-- DEPARTMENTS -->
   <div class="section">
     <div class="section-header">
       <div class="section-title">Departments</div>
@@ -188,7 +181,6 @@
     </div>
   </div>
 
-  <!-- STAFF LIST -->
   <div class="section">
     <div class="section-header">
       <div class="section-title">All Staff</div>
@@ -203,6 +195,10 @@
     <a class="nav-item active" href="admin-dashboard.html">
       <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%230A7EA4' stroke-width='2' viewBox='0 0 24 24'><rect x='3' y='3' width='7' height='7' rx='1'/><rect x='14' y='3' width='7' height='7' rx='1'/><rect x='3' y='14' width='7' height='7' rx='1'/><rect x='14' y='14' width='7' height='7' rx='1'/></svg>" alt=""/>
       <span>Dashboard</span>
+    </a>
+    <a class="nav-item" href="daily-activity.html">
+      <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%236B7A8D' stroke-width='2' viewBox='0 0 24 24'><path d='M3 3v18h18'/><path d='M18 17V9'/><path d='M13 17V5'/><path d='M8 17v-3'/></svg>" alt=""/>
+      <span>Activity</span>
     </a>
     <a class="nav-item" href="index.html">
       <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%236B7A8D' stroke-width='2' viewBox='0 0 24 24'><path d='M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z'/><path d='M9 21V12h6v9'/></svg>" alt=""/>
@@ -256,7 +252,6 @@
       el.style.display = 'block';
     }
 
-    // ---------- INIT: get my own staff record + org ----------
     function fetchMyStaff() {
       return fetch(SUPABASE_URL + '/rest/v1/staff?user_id=eq.' + session.user.id + '&select=id,full_name,role,org_id', {
         headers: authHeaders
@@ -274,7 +269,6 @@
       }).then(safeJson).then(function(rows) { return rows[0]; });
     }
 
-    // ---------- JOIN REQUESTS ----------
     function fetchJoinRequests(orgId) {
       return fetch(SUPABASE_URL + '/rest/v1/join_requests?org_id=eq.' + orgId + '&status=eq.pending&select=id,user_id,full_name,specialty,phone,created_at&order=created_at.asc', {
         headers: authHeaders
@@ -326,7 +320,6 @@
         phone.textContent = req.phone ? '\uD83D\uDCDE ' + req.phone : '';
         card.appendChild(phone);
 
-        // Department assignment (optional)
         if (departments.length) {
           var deptRow = document.createElement('div');
           deptRow.className = 'role-select-row';
@@ -420,7 +413,6 @@
       });
     }
 
-    // ---------- DEPARTMENTS ----------
     function renderDepartments(departments) {
       var container = document.getElementById('deptsContainer');
       container.innerHTML = '';
@@ -461,7 +453,6 @@
       });
     });
 
-    // ---------- STAFF LIST ----------
     function renderStaff(staffList) {
       var container = document.getElementById('staffContainer');
       container.innerHTML = '';
@@ -506,7 +497,6 @@
       });
     }
 
-    // ---------- LOAD EVERYTHING ----------
     function loadAll() {
       Promise.all([
         fetchJoinRequests(myOrgId),
@@ -528,7 +518,6 @@
       window.location.href = 'staff-login.html';
     });
 
-    // Init
     fetchMyStaff().then(function(staff) {
       myOrgId = staff.org_id;
       document.getElementById('welcomeName').textContent = 'Welcome, ' + staff.full_name;
