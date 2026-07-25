@@ -1,17 +1,23 @@
 // supabase/functions/whatsapp-webhook/index.ts
 //
-// ClinicBook Pro — WhatsApp AI Receptionist (v3)
-// Base: v2 (fail-safe scheduling, structured handoff summaries,
-// cancellation → waitlist recovery, per-conversation audit trail) — unchanged.
-// New in v3: bare "CANCEL" keyword handling and numeric-reply resolution for
-// patients with more than one upcoming appointment. Both short-circuit BEFORE
-// Claude is invoked, since they're fixed keywords, not something needing
-// AI interpretation — everything else below is untouched from v2.
+// ClinicBook Pro — WhatsApp AI Receptionist (v4.1)
+// Base: v4 (waitlist template on cancellation offers, YES keyword resolves
+// waitlist offers with re-verification + re-queue on race) — unchanged.
+// New in v4.1: dates sent to patients (waitlist offer + YES confirmation)
+// are now formatted as "July 22, 2026" instead of raw "2026-07-22", to match
+// the approved waitlist_slot_available template's sample content.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 function getTodayStr() {
   return new Date().toISOString().split("T")[0];
+}
+
+// Formats a YYYY-MM-DD string into a human-readable date for patient-facing
+// messages, e.g. "2026-07-22" -> "July 22, 2026".
+function formatDateForPatient(dateStr: string): string {
+  const date = new Date(dateStr + "T00:00:00");
+  return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -20,6 +26,9 @@ const META_VERIFY_TOKEN = Deno.env.get("META_VERIFY_TOKEN")!;
 const META_ACCESS_TOKEN = Deno.env.get("META_ACCESS_TOKEN")!;
 const META_PHONE_NUMBER_ID = Deno.env.get("META_PHONE_NUMBER_ID")!;
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
+
+// How long a waitlist offer stays valid before it's considered expired.
+const WAITLIST_OFFER_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -198,6 +207,39 @@ async function logToolCall(orgId: string, patientPhone: string, toolName: string
 }
 
 // ---------------------------------------------------------------------------
+// Send an approved WhatsApp template — used for any message that may go out
+// outside the patient's 24h free-form session window (waitlist offers,
+// reminders). Free-form text is silently dropped by Meta outside that window.
+// ---------------------------------------------------------------------------
+async function sendWaitlistTemplate(to: string, doctorName: string, slotDate: string) {
+  await fetch(`https://graph.facebook.com/v20.0/${META_PHONE_NUMBER_ID}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${META_ACCESS_TOKEN}`,
+    },
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      to,
+      type: "template",
+      template: {
+        name: "waitlist_slot_available", // must match your approved template name exactly
+        language: { code: "en_US" },
+        components: [
+          {
+            type: "body",
+            parameters: [
+              { type: "text", text: doctorName },
+              { type: "text", text: formatDateForPatient(slotDate) },
+            ],
+          },
+        ],
+      },
+    }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Cancellation recovery — offer freed slot to next matching waitlist entry
 // ---------------------------------------------------------------------------
 async function offerSlotToWaitlist(orgId: string, staffId: string, scheduleId: string, slotDate: string) {
@@ -216,15 +258,18 @@ async function offerSlotToWaitlist(orgId: string, staffId: string, scheduleId: s
 
   const candidate = candidates[0];
 
+  const { data: doctor } = await supabase
+    .from("staff")
+    .select("full_name")
+    .eq("id", staffId)
+    .single();
+
   await supabase
     .from("waitlist")
     .update({ status: "offered", offered_schedule_id: scheduleId, offered_at: new Date().toISOString() })
     .eq("id", candidate.id);
 
-  await sendWhatsAppMessage(
-    candidate.patient_phone,
-    `Good news — a slot just opened up on ${slotDate}. Reply YES within the next hour to claim it, and I'll book it for you.`
-  );
+  await sendWaitlistTemplate(candidate.patient_phone, doctor?.full_name || "your doctor", slotDate);
 
   return candidate;
 }
@@ -550,7 +595,7 @@ async function saveConversation(
 }
 
 // ---------------------------------------------------------------------------
-// NEW in v3 — CANCEL keyword support
+// CANCEL keyword support
 // ---------------------------------------------------------------------------
 // Two-step lookup (appointments -> schedules -> staff) instead of a nested
 // PostgREST join, to avoid the FK-ambiguity issue already hit and fixed
@@ -643,9 +688,8 @@ Deno.serve(async (req) => {
       }
 
       // -----------------------------------------------------------------
-      // NEW in v3: bare "CANCEL" keyword — short-circuit before Claude.
-      // This is a fixed keyword, not something needing AI interpretation,
-      // so it's handled here rather than added as a Claude tool.
+      // CANCEL keyword — short-circuit before Claude. Fixed keyword, not
+      // something needing AI interpretation.
       // -----------------------------------------------------------------
       const normalizedText = text.trim().toUpperCase();
 
@@ -680,9 +724,6 @@ Deno.serve(async (req) => {
           return new Response("OK", { status: 200 });
         }
 
-        // Exactly one upcoming appointment — cancel it directly, reusing the
-        // existing cancel_appointment tool so waitlist offering + audit
-        // logging happen exactly as they do when Claude calls it.
         const result = await executeTool(
           "cancel_appointment",
           { appointment_id: upcoming[0].appointment_id },
@@ -701,10 +742,87 @@ Deno.serve(async (req) => {
       }
 
       // -----------------------------------------------------------------
-      // NEW in v3: numeric reply — resolves a pending multi-appointment
-      // cancellation that was set up above. If there's no pending record,
-      // fall through to normal Claude handling, since a bare number could
-      // just be a legitimate patient message (e.g. an age or a date).
+      // Bare "YES" — resolves an active waitlist offer. Handled here (not
+      // as a Claude tool) since it's a fixed keyword tied directly to a
+      // specific waitlist row, same reasoning as CANCEL. Falls through to
+      // normal Claude handling if there's no active offer, since "yes" is
+      // also a completely normal conversational reply.
+      // -----------------------------------------------------------------
+      if (normalizedText === "YES") {
+        const { data: offer } = await supabase
+          .from("waitlist")
+          .select("id, patient_name, patient_phone, offered_schedule_id, offered_at")
+          .eq("org_id", org.id)
+          .eq("patient_phone", from)
+          .eq("status", "offered")
+          .order("offered_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (offer) {
+          const offeredAt = new Date(offer.offered_at).getTime();
+          const isExpired = Date.now() - offeredAt > WAITLIST_OFFER_WINDOW_MS;
+
+          if (isExpired) {
+            await supabase.from("waitlist").update({ status: "expired" }).eq("id", offer.id);
+            await sendWhatsAppMessage(
+              from,
+              "Sorry, that slot offer has expired. Reply with a date and doctor and I can check what's currently available, or I can add you back to the waitlist."
+            );
+            return new Response("OK", { status: 200 });
+          }
+
+          // Fail-safe: reuse book_appointment so the slot is re-verified as
+          // still open right before booking — the same protection Claude's
+          // booking flow gets, since two waitlisted patients could both
+          // reply YES for the same freed slot in a race.
+          const bookResult = await executeTool(
+            "book_appointment",
+            {
+              schedule_id: offer.offered_schedule_id,
+              patient_name: offer.patient_name,
+              patient_phone: offer.patient_phone,
+            },
+            org.id,
+            from
+          );
+
+          if (bookResult.success) {
+            await supabase.from("waitlist").update({ status: "booked" }).eq("id", offer.id);
+
+            const { data: scheduleDetails } = await supabase
+              .from("schedules")
+              .select("slot_date, start_time, staff:staff_id(full_name)")
+              .eq("id", offer.offered_schedule_id)
+              .single();
+
+            const doctorName = (scheduleDetails as any)?.staff?.full_name || "your doctor";
+            const slotDate = scheduleDetails?.slot_date ? formatDateForPatient(scheduleDetails.slot_date) : "";
+            const startTime = scheduleDetails?.start_time || "";
+
+            await sendWhatsAppMessage(
+              from,
+              `You're all set — booked with Dr. ${doctorName} on ${slotDate} at ${startTime}. See you then!`
+            );
+          } else {
+            // Someone else claimed it first (or it's otherwise no longer
+            // available). Re-queue rather than drop the patient — they
+            // didn't do anything wrong.
+            await supabase.from("waitlist").update({ status: "waiting" }).eq("id", offer.id);
+            await sendWhatsAppMessage(
+              from,
+              "Sorry — that slot was just taken by someone else. I've kept you on the waitlist and will let you know as soon as another one opens up."
+            );
+          }
+
+          return new Response("OK", { status: 200 });
+        }
+        // No active offer on record — fall through below to normal Claude
+        // handling, since a bare "yes" is a normal conversational reply too.
+      }
+
+      // -----------------------------------------------------------------
+      // Numeric reply — resolves a pending multi-appointment cancellation.
       // -----------------------------------------------------------------
       if (/^\d+$/.test(normalizedText)) {
         const { data: pending } = await supabase
@@ -781,3 +899,4 @@ Deno.serve(async (req) => {
 
   return new Response("Method not allowed", { status: 405 });
 });
+
