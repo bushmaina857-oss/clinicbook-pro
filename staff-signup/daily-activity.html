@@ -103,7 +103,8 @@
     .error-box { margin: 16px 24px; padding: 14px 16px; background: #FEE2E2; border: 1.5px solid #FCA5A5; border-radius: 10px; font-size: 14px; color: #991B1B; display: none; }
 
     .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #ffffff; border-top: 2px solid #DDE3EA; display: flex; height: 64px; z-index: 999; box-shadow: 0 -2px 12px rgba(0,0,0,0.08); }
-    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #6B7A8D; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; border: none; background: none; cursor: pointer; padding: 8px 4px; }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #6B7A8D; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; border: none; background: none; cursor: pointer; padding: 8px 4px; position: relative; }
+    .nav-badge { position: absolute; top: 3px; right: calc(50% - 26px); background: #DC2626; color: #fff; font-size: 9px; font-weight: 700; min-width: 15px; height: 15px; border-radius: 50px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; }
     .nav-item img { width: 22px; height: 22px; }
     .nav-item.active { color: #0A7EA4; }
 
@@ -251,6 +252,7 @@
     var a = document.createElement('a');
     a.className = 'nav-item' + (active ? ' active' : '');
     a.href = href;
+    a.setAttribute('data-nav-key', key);
     var color = active ? '%230A7EA4' : '%236B7A8D';
     var img = document.createElement('img');
     img.width = 22; img.height = 22;
@@ -260,6 +262,35 @@
     a.appendChild(img);
     a.appendChild(span);
     return a;
+  }
+
+  function setNavBadge(key, count) {
+    var item = document.querySelector('.bottom-nav [data-nav-key="' + key + '"]');
+    if (!item) return;
+    var existing = item.querySelector('.nav-badge');
+    if (count > 0) {
+      var text = count > 9 ? '9+' : String(count);
+      if (existing) { existing.textContent = text; }
+      else {
+        var badge = document.createElement('span');
+        badge.className = 'nav-badge';
+        badge.textContent = text;
+        item.appendChild(badge);
+      }
+    } else if (existing) {
+      existing.remove();
+    }
+  }
+
+  function fetchFrontDeskBadgeCount(orgId) {
+    return fetch(SUPABASE_URL + '/rest/v1/whatsapp_conversations?org_id=eq.' + orgId + '&escalation_summary=not.is.null&select=patient_phone', {
+      headers: Object.assign({}, authHeaders, { 'Prefer': 'count=exact' })
+    }).then(function(res) {
+      var range = res.headers.get('content-range');
+      if (!range) return 0;
+      var total = parseInt(range.split('/')[1], 10);
+      return isNaN(total) ? 0 : total;
+    }).catch(function() { return 0; });
   }
 
   function renderBottomNav(role, activeKey) {
@@ -465,6 +496,8 @@
     return fetchDailyActivity(dateStr).then(function(rows) {
       activityCache = rows || [];
       var deptIds = Array.from(new Set(activityCache.filter(function(a) { return a.department_id; }).map(function(a) { return a.department_id; })));
+      var followupCount = activityCache.filter(function(a) { return a.needs_followup; }).length;
+      setNavBadge('activity', followupCount);
       return fetchDeptNames(deptIds).then(function(depts) {
         deptNameMap = {};
         (depts || []).forEach(function(d) { deptNameMap[d.id] = d.name; });
@@ -503,6 +536,7 @@
   checkAccess().then(function(allowed) {
     if (!allowed) return;
     loadActivity(today);
+    fetchFrontDeskBadgeCount(myOrgId).then(function(count) { setNavBadge('frontdesk', count); });
   }).catch(function(err) {
     if (err.message && (err.message.indexOf('JWT') !== -1 || err.message.indexOf('token') !== -1)) {
       localStorage.removeItem('clinicbook_pro_session');
