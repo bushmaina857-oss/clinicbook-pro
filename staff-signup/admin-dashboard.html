@@ -78,8 +78,9 @@
 
     .staff-card {
       background: var(--white); border-radius: 12px; box-shadow: var(--card-shadow);
-      padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; margin-bottom: 8px;
     }
+    .staff-card-top { display: flex; align-items: center; justify-content: space-between; }
     .staff-info { display: flex; align-items: center; gap: 12px; }
     .staff-avatar {
       width: 40px; height: 40px; border-radius: 10px; background: var(--teal-light);
@@ -88,6 +89,7 @@
     }
     .staff-name { font-size: 14px; font-weight: 600; color: var(--text); }
     .staff-meta { font-size: 12px; color: var(--muted); margin-top: 1px; }
+    .staff-top-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .role-pill {
       font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 50px;
       text-transform: capitalize;
@@ -95,6 +97,37 @@
     .role-pill.admin { background: var(--teal-light); color: var(--teal); }
     .role-pill.doctor { background: #FEF3C7; color: #D97706; }
     .role-pill.receptionist { background: #EDE9FE; color: #7C3AED; }
+    .staff-manage-btn {
+      font-size: 11px; font-weight: 600; color: var(--teal); background: none;
+      border: 1.5px solid var(--teal-light); border-radius: 50px; padding: 5px 11px;
+      cursor: pointer; font-family: 'Inter', sans-serif; white-space: nowrap;
+    }
+    .staff-manage-btn:hover { background: var(--teal-light); }
+    .staff-manage-panel { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .staff-manage-panel.open { display: block; }
+    .staff-manage-row { margin-bottom: 10px; }
+    .staff-manage-row label {
+      display: block; font-size: 10.5px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 5px;
+    }
+    .staff-manage-row select {
+      width: 100%; padding: 9px 10px; border-radius: 8px; border: 1.5px solid var(--border);
+      font-size: 13px; font-family: 'Inter', sans-serif; background: var(--bg);
+    }
+    .staff-manage-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .staff-save-btn {
+      flex: 1; padding: 9px; border-radius: 8px; border: none; background: var(--teal);
+      color: #fff; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif;
+    }
+    .staff-save-btn:hover { background: #086988; }
+    .staff-toggle-active-btn {
+      flex: 1; padding: 9px; border-radius: 8px; border: 1.5px solid #FCA5A5;
+      background: var(--white); color: #DC2626; font-size: 12.5px; font-weight: 600;
+      cursor: pointer; font-family: 'Inter', sans-serif;
+    }
+    .staff-toggle-active-btn.reactivate { border-color: #86EFAC; color: #16A34A; }
+    .staff-manage-btn:disabled, .staff-save-btn:disabled, .staff-toggle-active-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .staff-manage-error { font-size: 12px; color: #DC2626; margin-top: 8px; display: none; }
 
     .add-dept-form {
       background: var(--white); border-radius: var(--radius); box-shadow: var(--card-shadow);
@@ -124,7 +157,8 @@
     .toast { margin: 0 24px 14px; padding: 12px 14px; background: #DCFCE7; border: 1.5px solid #86EFAC; border-radius: 10px; font-size: 13px; color: #15803D; display: none; font-weight: 500; }
 
     .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #ffffff; border-top: 2px solid #DDE3EA; display: flex; height: 64px; z-index: 999; box-shadow: 0 -2px 12px rgba(0,0,0,0.08); }
-    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #6B7A8D; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; border: none; background: none; cursor: pointer; padding: 8px 4px; }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #6B7A8D; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; border: none; background: none; cursor: pointer; padding: 8px 4px; position: relative; }
+    .nav-badge { position: absolute; top: 3px; right: calc(50% - 26px); background: #DC2626; color: #fff; font-size: 9px; font-weight: 700; min-width: 15px; height: 15px; border-radius: 50px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; }
     .nav-item img { width: 22px; height: 22px; }
     .nav-item.active { color: #0A7EA4; }
   </style>
@@ -196,7 +230,11 @@
       <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%230A7EA4' stroke-width='2' viewBox='0 0 24 24'><rect x='3' y='3' width='7' height='7' rx='1'/><rect x='14' y='3' width='7' height='7' rx='1'/><rect x='3' y='14' width='7' height='7' rx='1'/><rect x='14' y='14' width='7' height='7' rx='1'/></svg>" alt=""/>
       <span>Dashboard</span>
     </a>
-    <a class="nav-item" href="daily-activity.html">
+    <a class="nav-item" href="front-desk.html" data-nav-key="frontdesk">
+      <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%236B7A8D' stroke-width='2' viewBox='0 0 24 24'><path d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/><path d='M9 22V12h6v10'/></svg>" alt=""/>
+      <span>Front Desk</span>
+    </a>
+    <a class="nav-item" href="daily-activity.html" data-nav-key="activity">
       <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%236B7A8D' stroke-width='2' viewBox='0 0 24 24'><path d='M3 3v18h18'/><path d='M18 17V9'/><path d='M13 17V5'/><path d='M8 17v-3'/></svg>" alt=""/>
       <span>Activity</span>
     </a>
@@ -221,7 +259,51 @@
     };
 
     var myOrgId = null;
+    var myStaffId = null;
     var myOrgName = '';
+
+    function getLocalDateString() {
+      var d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    var today = getLocalDateString();
+
+    function setNavBadge(key, count) {
+      var item = document.querySelector('.bottom-nav [data-nav-key="' + key + '"]');
+      if (!item) return;
+      var existing = item.querySelector('.nav-badge');
+      if (count > 0) {
+        var text = count > 9 ? '9+' : String(count);
+        if (existing) { existing.textContent = text; }
+        else {
+          var badge = document.createElement('span');
+          badge.className = 'nav-badge';
+          badge.textContent = text;
+          item.appendChild(badge);
+        }
+      } else if (existing) {
+        existing.remove();
+      }
+    }
+
+    function fetchFrontDeskBadgeCount(orgId) {
+      return fetch(SUPABASE_URL + '/rest/v1/whatsapp_conversations?org_id=eq.' + orgId + '&escalation_summary=not.is.null&select=patient_phone', {
+        headers: Object.assign({}, authHeaders, { 'Prefer': 'count=exact' })
+      }).then(function(res) {
+        var range = res.headers.get('content-range');
+        if (!range) return 0;
+        var total = parseInt(range.split('/')[1], 10);
+        return isNaN(total) ? 0 : total;
+      }).catch(function() { return 0; });
+    }
+
+    function fetchActivityBadgeCount(orgId, dateStr) {
+      return fetch(SUPABASE_URL + '/rest/v1/rpc/get_daily_activity', {
+        method: 'POST', headers: authHeaders, body: JSON.stringify({ p_org_id: orgId, p_date: dateStr })
+      }).then(safeJson).then(function(rows) {
+        return (rows || []).filter(function(r) { return r.needs_followup; }).length;
+      }).catch(function() { return 0; });
+    }
 
     function safeJson(res) {
       return res.text().then(function(t) {
@@ -282,7 +364,7 @@
     }
 
     function fetchAllStaff(orgId) {
-      return fetch(SUPABASE_URL + '/rest/v1/staff?org_id=eq.' + orgId + '&select=id,full_name,role,specialty,phone,is_active&order=role.asc', {
+      return fetch(SUPABASE_URL + '/rest/v1/staff?org_id=eq.' + orgId + '&select=id,full_name,role,specialty,phone,is_active,department_id&order=role.asc', {
         headers: authHeaders
       }).then(safeJson);
     }
@@ -453,7 +535,7 @@
       });
     });
 
-    function renderStaff(staffList) {
+    function renderStaff(staffList, departments) {
       var container = document.getElementById('staffContainer');
       container.innerHTML = '';
       document.getElementById('statStaff').textContent = staffList.length;
@@ -463,9 +545,16 @@
         return;
       }
 
+      var deptMap = {};
+      (departments || []).forEach(function(d) { deptMap[d.id] = d.name; });
+
       staffList.forEach(function(s) {
         var card = document.createElement('div');
         card.className = 'staff-card';
+
+        // ---- top row: avatar/name/meta + role pill + manage toggle ----
+        var top = document.createElement('div');
+        top.className = 'staff-card-top';
 
         var info = document.createElement('div');
         info.className = 'staff-info';
@@ -480,20 +569,133 @@
         name.textContent = s.full_name + (s.is_active ? '' : ' (inactive)');
         var meta = document.createElement('div');
         meta.className = 'staff-meta';
-        meta.textContent = s.specialty || (s.phone || '');
+        var metaBits = [s.specialty, s.phone, s.department_id ? deptMap[s.department_id] : null].filter(Boolean);
+        meta.textContent = metaBits.join(' · ');
         textWrap.appendChild(name);
         textWrap.appendChild(meta);
 
         info.appendChild(avatar);
         info.appendChild(textWrap);
 
+        var topRight = document.createElement('div');
+        topRight.className = 'staff-top-right';
         var pill = document.createElement('span');
         pill.className = 'role-pill ' + s.role;
         pill.textContent = s.role;
+        var manageBtn = document.createElement('button');
+        manageBtn.className = 'staff-manage-btn';
+        manageBtn.textContent = 'Manage';
+        topRight.appendChild(pill);
+        topRight.appendChild(manageBtn);
 
-        card.appendChild(info);
-        card.appendChild(pill);
+        top.appendChild(info);
+        top.appendChild(topRight);
+        card.appendChild(top);
+
+        // ---- expandable manage panel: role, department, active toggle ----
+        var panel = document.createElement('div');
+        panel.className = 'staff-manage-panel';
+
+        var roleRow = document.createElement('div');
+        roleRow.className = 'staff-manage-row';
+        var roleLabel = document.createElement('label');
+        roleLabel.textContent = 'Role';
+        var roleSelect = document.createElement('select');
+        ['admin', 'doctor', 'receptionist'].forEach(function(r) {
+          var opt = document.createElement('option');
+          opt.value = r;
+          opt.textContent = r.charAt(0).toUpperCase() + r.slice(1);
+          if (r === s.role) opt.selected = true;
+          roleSelect.appendChild(opt);
+        });
+        roleRow.appendChild(roleLabel);
+        roleRow.appendChild(roleSelect);
+
+        var deptRow = document.createElement('div');
+        deptRow.className = 'staff-manage-row';
+        var deptLabel = document.createElement('label');
+        deptLabel.textContent = 'Department';
+        var deptSelect = document.createElement('select');
+        var noneOpt = document.createElement('option');
+        noneOpt.value = '';
+        noneOpt.textContent = 'No department (solo)';
+        if (!s.department_id) noneOpt.selected = true;
+        deptSelect.appendChild(noneOpt);
+        (departments || []).forEach(function(d) {
+          var opt = document.createElement('option');
+          opt.value = d.id;
+          opt.textContent = d.name;
+          if (d.id === s.department_id) opt.selected = true;
+          deptSelect.appendChild(opt);
+        });
+        deptRow.appendChild(deptLabel);
+        deptRow.appendChild(deptSelect);
+
+        panel.appendChild(roleRow);
+        panel.appendChild(deptRow);
+
+        var errBox = document.createElement('div');
+        errBox.className = 'staff-manage-error';
+        panel.appendChild(errBox);
+
+        var actions = document.createElement('div');
+        actions.className = 'staff-manage-actions';
+
+        var saveBtn = document.createElement('button');
+        saveBtn.className = 'staff-save-btn';
+        saveBtn.textContent = 'Save changes';
+        saveBtn.addEventListener('click', function() {
+          updateStaffMember(s.id, {
+            role: roleSelect.value,
+            department_id: deptSelect.value || null
+          }, [saveBtn, toggleActiveBtn], errBox);
+        });
+
+        var toggleActiveBtn = document.createElement('button');
+        toggleActiveBtn.className = 'staff-toggle-active-btn' + (s.is_active ? '' : ' reactivate');
+        toggleActiveBtn.textContent = s.is_active ? 'Deactivate' : 'Reactivate';
+        toggleActiveBtn.addEventListener('click', function() {
+          var msg = s.is_active
+            ? 'Deactivate ' + s.full_name + '? They will lose access immediately.'
+            : 'Reactivate ' + s.full_name + '?';
+          if (!confirm(msg)) return;
+          updateStaffMember(s.id, { is_active: !s.is_active }, [saveBtn, toggleActiveBtn], errBox);
+        });
+
+        if (s.id === myStaffId) {
+          roleSelect.disabled = true;
+          toggleActiveBtn.disabled = true;
+          toggleActiveBtn.title = "You can't change your own role or deactivate yourself.";
+          roleSelect.title = "You can't change your own role or deactivate yourself.";
+        }
+
+        actions.appendChild(saveBtn);
+        actions.appendChild(toggleActiveBtn);
+        panel.appendChild(actions);
+
+        card.appendChild(panel);
+
+        manageBtn.addEventListener('click', function() {
+          panel.classList.toggle('open');
+        });
+
         container.appendChild(card);
+      });
+    }
+
+    function updateStaffMember(staffId, updates, btns, errBox) {
+      btns.forEach(function(b) { b.disabled = true; });
+      errBox.style.display = 'none';
+
+      fetch(SUPABASE_URL + '/rest/v1/staff?id=eq.' + staffId, {
+        method: 'PATCH', headers: authHeaders, body: JSON.stringify(updates)
+      }).then(safeJson).then(function() {
+        showToast('Staff member updated.');
+        loadAll();
+      }).catch(function(err) {
+        errBox.textContent = err.message;
+        errBox.style.display = 'block';
+        btns.forEach(function(b) { b.disabled = false; });
       });
     }
 
@@ -506,7 +708,7 @@
         var requests = results[0], departments = results[1], staffList = results[2];
         renderRequests(requests, departments);
         renderDepartments(departments);
-        renderStaff(staffList);
+        renderStaff(staffList, departments);
       }).catch(function(err) {
         showErrorBox(err.message);
         console.error(err);
@@ -520,12 +722,15 @@
 
     fetchMyStaff().then(function(staff) {
       myOrgId = staff.org_id;
+      myStaffId = staff.id;
       document.getElementById('welcomeName').textContent = 'Welcome, ' + staff.full_name;
       return fetchOrg(myOrgId);
     }).then(function(org) {
       myOrgName = org.name;
       document.getElementById('welcomeSub').textContent = org.name + ' \u2014 ' + org.type;
       loadAll();
+      fetchFrontDeskBadgeCount(myOrgId).then(function(count) { setNavBadge('frontdesk', count); });
+      fetchActivityBadgeCount(myOrgId, today).then(function(count) { setNavBadge('activity', count); });
     }).catch(function(err) {
       if (err.message.indexOf('JWT') !== -1 || err.message.indexOf('token') !== -1) {
         localStorage.removeItem('clinicbook_pro_session');
