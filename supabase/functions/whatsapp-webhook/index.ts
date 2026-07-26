@@ -1,11 +1,28 @@
 // supabase/functions/whatsapp-webhook/index.ts
 //
-// ClinicBook Pro — WhatsApp AI Receptionist (v4.1)
-// Base: v4 (waitlist template on cancellation offers, YES keyword resolves
-// waitlist offers with re-verification + re-queue on race) — unchanged.
-// New in v4.1: dates sent to patients (waitlist offer + YES confirmation)
-// are now formatted as "July 22, 2026" instead of raw "2026-07-22", to match
-// the approved waitlist_slot_available template's sample content.
+// ClinicBook Pro — WhatsApp AI Receptionist (v5.0 — Zernio migration)
+// Base: v4.1 (Meta Cloud API direct) — all booking/cancel/waitlist/escalation
+// logic is UNCHANGED. What changed: the WhatsApp transport layer moved from
+// Meta's Cloud API directly to Zernio (https://zernio.com), which wraps
+// WhatsApp (and other platforms) behind a unified inbox API.
+//
+// Key differences from v4.1:
+// - Org lookup is now keyed on Zernio's account.id, not Meta's phone_number_id.
+// - Sending a message now requires BOTH a conversationId and an accountId
+//   (Zernio's inbox is conversation-based), not just a phone number.
+// - Incoming payload shape is Zernio's `message.received` webhook event,
+//   not Meta's `entry[0].changes[0].value.messages[0]` shape.
+// - No GET-based webhook verification challenge — Zernio's webhook setup
+//   is just "give it a URL", unlike Meta's hub.mode/hub.challenge dance.
+//
+// KNOWN GAP (flagged, not silently papered over): sendWaitlistTemplate()
+// below sends a normal free-form message via Zernio, not a Meta-style
+// approved template. On Meta directly, free-form messages outside the 24h
+// customer-service window are silently dropped. Zernio's docs mention a
+// `template` field on their create-conversation endpoint for this exact
+// case, but we haven't confirmed the exact request shape yet. If waitlist
+// offers stop arriving for patients who haven't messaged recently, this is
+// the first place to check.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -22,9 +39,7 @@ function formatDateForPatient(dateStr: string): string {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const META_VERIFY_TOKEN = Deno.env.get("META_VERIFY_TOKEN")!;
-const META_ACCESS_TOKEN = Deno.env.get("META_ACCESS_TOKEN")!;
-const META_PHONE_NUMBER_ID = Deno.env.get("META_PHONE_NUMBER_ID")!;
+const ZERNIO_API_KEY = Deno.env.get("ZERNIO_API_KEY")!;
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 
 // How long a waitlist offer stays valid before it's considered expired.
@@ -33,7 +48,7 @@ const WAITLIST_OFFER_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 // ---------------------------------------------------------------------------
-// SYSTEM PROMPT
+// SYSTEM PROMPT (unchanged from v4.1)
 // ---------------------------------------------------------------------------
 const SYSTEM_PROMPT = `You are the WhatsApp receptionist for a clinic on ClinicBook Pro.
 
@@ -94,7 +109,7 @@ Keep replies short and warm, appropriate for WhatsApp. Always confirm key detail
 (date, time, doctor name) back to the patient before finalizing a booking action.`;
 
 // ---------------------------------------------------------------------------
-// TOOLS
+// TOOLS (unchanged from v4.1)
 // ---------------------------------------------------------------------------
 const TOOLS = [
   {
@@ -190,7 +205,7 @@ const TOOLS = [
 ];
 
 // ---------------------------------------------------------------------------
-// Audit logging — one row per tool call
+// Audit logging — one row per tool call (unchanged)
 // ---------------------------------------------------------------------------
 async function logToolCall(orgId: string, patientPhone: string, toolName: string, input: any, result: any) {
   try {
@@ -207,43 +222,74 @@ async function logToolCall(orgId: string, patientPhone: string, toolName: string
 }
 
 // ---------------------------------------------------------------------------
-// Send an approved WhatsApp template — used for any message that may go out
-// outside the patient's 24h free-form session window (waitlist offers,
-// reminders). Free-form text is silently dropped by Meta outside that window.
+// Send a WhatsApp message via Zernio.
+// Zernio's inbox is conversation-based: you need the conversation's id AND
+// the Zernio account id it belongs to (confirmed working endpoint/shape as
+// of July 2026 — see /v1/inbox/conversations/{conversationId}/messages).
 // ---------------------------------------------------------------------------
-async function sendWaitlistTemplate(to: string, doctorName: string, slotDate: string) {
-  await fetch(`https://graph.facebook.com/v20.0/${META_PHONE_NUMBER_ID}/messages`, {
+async function sendWhatsAppMessage(conversationId: string, accountId: string, text: string) {
+  const res = await fetch(`https://zernio.com/api/v1/inbox/conversations/${conversationId}/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${META_ACCESS_TOKEN}`,
+      Authorization: `Bearer ${ZERNIO_API_KEY}`,
     },
     body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      type: "template",
-      template: {
-        name: "waitlist_slot_available", // must match your approved template name exactly
-        language: { code: "en_US" },
-        components: [
-          {
-            type: "body",
-            parameters: [
-              { type: "text", text: doctorName },
-              { type: "text", text: formatDateForPatient(slotDate) },
-            ],
-          },
-        ],
-      },
+      accountId,
+      message: text,
     }),
   });
+
+  if (!res.ok) {
+    console.error("Zernio send failed:", res.status, await res.text());
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Look up the Zernio conversationId + accountId for a given patient/org, so
+// we can send them a proactive message (waitlist offer, reminder) outside
+// of directly replying to an inbound webhook event. Relies on
+// whatsapp_conversations.zernio_conversation_id having been saved the last
+// time this patient messaged in (see saveConversation below).
+// ---------------------------------------------------------------------------
+async function getConversationRef(orgId: string, phone: string): Promise<{ conversationId: string; accountId: string } | null> {
+  const { data: org } = await supabase
+    .from("organizations")
+    .select("zernio_account_id")
+    .eq("id", orgId)
+    .single();
+
+  const { data: convo } = await supabase
+    .from("whatsapp_conversations")
+    .select("zernio_conversation_id")
+    .eq("patient_phone", phone)
+    .eq("org_id", orgId)
+    .single();
+
+  if (!org?.zernio_account_id || !convo?.zernio_conversation_id) return null;
+
+  return { conversationId: convo.zernio_conversation_id, accountId: org.zernio_account_id };
+}
+
+// ---------------------------------------------------------------------------
+// Waitlist offer notification — see KNOWN GAP note at top of file. Currently
+// sends as a plain message rather than a confirmed Meta/Zernio template.
+// ---------------------------------------------------------------------------
+async function sendWaitlistTemplate(orgId: string, patientPhone: string, doctorName: string, slotDate: string) {
+  const ref = await getConversationRef(orgId, patientPhone);
+  if (!ref) {
+    console.error("No known Zernio conversation for waitlist notify:", patientPhone);
+    return;
+  }
+  const text = `Good news — a slot just opened up with Dr. ${doctorName} on ${formatDateForPatient(slotDate)}. Reply YES to claim it, or it'll be offered to the next person on the waitlist.`;
+  await sendWhatsAppMessage(ref.conversationId, ref.accountId, text);
 }
 
 // ---------------------------------------------------------------------------
 // Cancellation recovery — offer freed slot to next matching waitlist entry
+// (unchanged logic, only the send call at the bottom changed)
 // ---------------------------------------------------------------------------
 async function offerSlotToWaitlist(orgId: string, staffId: string, scheduleId: string, slotDate: string) {
-  // Find the oldest waiting entry for this doctor, matching this date or "any day"
   const { data: candidates } = await supabase
     .from("waitlist")
     .select("id, patient_name, patient_phone, preferred_date")
@@ -269,13 +315,13 @@ async function offerSlotToWaitlist(orgId: string, staffId: string, scheduleId: s
     .update({ status: "offered", offered_schedule_id: scheduleId, offered_at: new Date().toISOString() })
     .eq("id", candidate.id);
 
-  await sendWaitlistTemplate(candidate.patient_phone, doctor?.full_name || "your doctor", slotDate);
+  await sendWaitlistTemplate(orgId, candidate.patient_phone, doctor?.full_name || "your doctor", slotDate);
 
   return candidate;
 }
 
 // ---------------------------------------------------------------------------
-// Tool execution
+// Tool execution (unchanged from v4.1 — no Zernio-specific logic here)
 // ---------------------------------------------------------------------------
 async function executeTool(name: string, input: any, orgId: string, patientPhone: string) {
   let result: any;
@@ -327,7 +373,6 @@ async function executeTool(name: string, input: any, orgId: string, patientPhone
     }
 
     case "book_appointment": {
-      // Fail-safe: re-verify the slot is genuinely still open before inserting.
       const { data: schedule } = await supabase
         .from("schedules")
         .select("id, staff_id, max_capacity, booked_count, slot_date")
@@ -403,7 +448,6 @@ async function executeTool(name: string, input: any, orgId: string, patientPhone
         break;
       }
 
-      // Cancellation recovery: try to offer this freed slot to the waitlist.
       let offeredTo = null;
       const sched = (appt as any).schedules;
       if (sched?.staff_id && sched?.slot_date) {
@@ -481,7 +525,7 @@ async function executeTool(name: string, input: any, orgId: string, patientPhone
 }
 
 // ---------------------------------------------------------------------------
-// Claude call with tool loop
+// Claude call with tool loop (unchanged from v4.1)
 // ---------------------------------------------------------------------------
 async function runClaude(messages: any[], orgId: string, patientPhone: string) {
   let convo = [...messages];
@@ -530,25 +574,8 @@ async function runClaude(messages: any[], orgId: string, patientPhone: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Send reply via Meta Cloud API
-// ---------------------------------------------------------------------------
-async function sendWhatsAppMessage(to: string, text: string) {
-  await fetch(`https://graph.facebook.com/v20.0/${META_PHONE_NUMBER_ID}/messages`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${META_ACCESS_TOKEN}`,
-    },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      text: { body: text },
-    }),
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Conversation persistence
+// Conversation persistence — now also stores the Zernio conversationId so
+// proactive sends (waitlist offers, reminders) can find it later.
 // ---------------------------------------------------------------------------
 async function loadConversation(phone: string, orgId: string) {
   const { data } = await supabase
@@ -571,6 +598,7 @@ async function saveConversation(
   messages: any[],
   assignedStaffId: string | null,
   unreadCount: number,
+  zernioConversationId: string,
   patientName?: string
 ) {
   let staffId = assignedStaffId;
@@ -589,17 +617,15 @@ async function saveConversation(
       messages: messages.slice(-20),
       last_message_at: new Date().toISOString(),
       unread_count: unreadCount + 1,
+      zernio_conversation_id: zernioConversationId,
     },
     { onConflict: "patient_phone,org_id" }
   );
 }
 
 // ---------------------------------------------------------------------------
-// CANCEL keyword support
+// CANCEL keyword support (unchanged)
 // ---------------------------------------------------------------------------
-// Two-step lookup (appointments -> schedules -> staff) instead of a nested
-// PostgREST join, to avoid the FK-ambiguity issue already hit and fixed
-// elsewhere in this project.
 async function getUpcomingAppointmentsForCancel(orgId: string, phone: string) {
   const { data: appts } = await supabase
     .from("appointments")
@@ -628,7 +654,7 @@ async function getUpcomingAppointmentsForCancel(orgId: string, phone: string) {
   const combined = appts
     .map((a) => {
       const sched = scheduleMap.get(a.schedule_id);
-      if (!sched) return null; // schedule is in the past or missing — skip
+      if (!sched) return null;
       return {
         appointment_id: a.id,
         slot_date: sched.slot_date,
@@ -646,50 +672,49 @@ async function getUpcomingAppointmentsForCancel(orgId: string, phone: string) {
 // Main handler
 // ---------------------------------------------------------------------------
 Deno.serve(async (req) => {
-  const url = new URL(req.url);
-
   if (req.method === "GET") {
-    const mode = url.searchParams.get("hub.mode");
-    const token = url.searchParams.get("hub.verify_token");
-    const challenge = url.searchParams.get("hub.challenge");
-    if (mode === "subscribe" && token === META_VERIFY_TOKEN) {
-      return new Response(challenge, { status: 200 });
-    }
-    return new Response("Forbidden", { status: 403 });
+    // Zernio's webhook setup doesn't use a challenge/verify-token handshake
+    // the way Meta's does — this is just a plain health check.
+    return new Response("OK", { status: 200 });
   }
 
   if (req.method === "POST") {
     const body = await req.json();
 
     try {
-      const entry = body.entry?.[0];
-      const change = entry?.changes?.[0];
-      const message = change?.value?.messages?.[0];
-      if (!message) return new Response("OK", { status: 200 });
+      if (body.event !== "message.received") {
+        return new Response("OK", { status: 200 });
+      }
 
-      const from = message.from;
-      const text = message.text?.body;
-      const metaPhoneNumberId = change.value.metadata.phone_number_id;
+      const from = body.message?.sender?.phoneNumber; // e.g. "+254708910797"
+      const text = body.message?.text;
+      const conversationId = body.conversation?.id;
+      const accountId = body.account?.id;
+      const patientName = body.message?.sender?.name;
 
-      if (!text) {
-        await sendWhatsAppMessage(from, "I can only read text messages right now — could you type your question?");
+      if (!conversationId || !accountId || !from) {
+        console.error("Malformed Zernio payload — missing conversation/account/sender:", JSON.stringify(body));
         return new Response("OK", { status: 200 });
       }
 
       const { data: org } = await supabase
         .from("organizations")
         .select("id")
-        .eq("whatsapp_phone_number_id", metaPhoneNumberId)
+        .eq("zernio_account_id", accountId)
         .single();
 
       if (!org) {
-        console.error("No organization mapped to phone_number_id:", metaPhoneNumberId);
+        console.error("No organization mapped to Zernio accountId:", accountId);
+        return new Response("OK", { status: 200 });
+      }
+
+      if (!text) {
+        await sendWhatsAppMessage(conversationId, accountId, "I can only read text messages right now — could you type your question?");
         return new Response("OK", { status: 200 });
       }
 
       // -----------------------------------------------------------------
-      // CANCEL keyword — short-circuit before Claude. Fixed keyword, not
-      // something needing AI interpretation.
+      // CANCEL keyword — short-circuit before Claude.
       // -----------------------------------------------------------------
       const normalizedText = text.trim().toUpperCase();
 
@@ -697,7 +722,7 @@ Deno.serve(async (req) => {
         const upcoming = await getUpcomingAppointmentsForCancel(org.id, from);
 
         if (upcoming.length === 0) {
-          await sendWhatsAppMessage(from, "I couldn't find an upcoming appointment to cancel for this number.");
+          await sendWhatsAppMessage(conversationId, accountId, "I couldn't find an upcoming appointment to cancel for this number.");
           return new Response("OK", { status: 200 });
         }
 
@@ -707,7 +732,8 @@ Deno.serve(async (req) => {
             .join("\n");
 
           await sendWhatsAppMessage(
-            from,
+            conversationId,
+            accountId,
             `You have more than one upcoming appointment. Reply with the number to cancel:\n\n${list}`
           );
 
@@ -732,7 +758,8 @@ Deno.serve(async (req) => {
         );
 
         await sendWhatsAppMessage(
-          from,
+          conversationId,
+          accountId,
           result.success
             ? "Your appointment has been cancelled. Let us know if you'd like to rebook."
             : "Sorry, I couldn't cancel that appointment. Please contact the clinic directly."
@@ -742,11 +769,7 @@ Deno.serve(async (req) => {
       }
 
       // -----------------------------------------------------------------
-      // Bare "YES" — resolves an active waitlist offer. Handled here (not
-      // as a Claude tool) since it's a fixed keyword tied directly to a
-      // specific waitlist row, same reasoning as CANCEL. Falls through to
-      // normal Claude handling if there's no active offer, since "yes" is
-      // also a completely normal conversational reply.
+      // Bare "YES" — resolves an active waitlist offer.
       // -----------------------------------------------------------------
       if (normalizedText === "YES") {
         const { data: offer } = await supabase
@@ -766,16 +789,13 @@ Deno.serve(async (req) => {
           if (isExpired) {
             await supabase.from("waitlist").update({ status: "expired" }).eq("id", offer.id);
             await sendWhatsAppMessage(
-              from,
+              conversationId,
+              accountId,
               "Sorry, that slot offer has expired. Reply with a date and doctor and I can check what's currently available, or I can add you back to the waitlist."
             );
             return new Response("OK", { status: 200 });
           }
 
-          // Fail-safe: reuse book_appointment so the slot is re-verified as
-          // still open right before booking — the same protection Claude's
-          // booking flow gets, since two waitlisted patients could both
-          // reply YES for the same freed slot in a race.
           const bookResult = await executeTool(
             "book_appointment",
             {
@@ -801,24 +821,21 @@ Deno.serve(async (req) => {
             const startTime = scheduleDetails?.start_time || "";
 
             await sendWhatsAppMessage(
-              from,
+              conversationId,
+              accountId,
               `You're all set — booked with Dr. ${doctorName} on ${slotDate} at ${startTime}. See you then!`
             );
           } else {
-            // Someone else claimed it first (or it's otherwise no longer
-            // available). Re-queue rather than drop the patient — they
-            // didn't do anything wrong.
             await supabase.from("waitlist").update({ status: "waiting" }).eq("id", offer.id);
             await sendWhatsAppMessage(
-              from,
+              conversationId,
+              accountId,
               "Sorry — that slot was just taken by someone else. I've kept you on the waitlist and will let you know as soon as another one opens up."
             );
           }
 
           return new Response("OK", { status: 200 });
         }
-        // No active offer on record — fall through below to normal Claude
-        // handling, since a bare "yes" is a normal conversational reply too.
       }
 
       // -----------------------------------------------------------------
@@ -837,7 +854,7 @@ Deno.serve(async (req) => {
           const appointmentIds: string[] = pending.appointment_ids || [];
 
           if (index < 0 || index >= appointmentIds.length) {
-            await sendWhatsAppMessage(from, `Please reply with a number between 1 and ${appointmentIds.length}.`);
+            await sendWhatsAppMessage(conversationId, accountId, `Please reply with a number between 1 and ${appointmentIds.length}.`);
             return new Response("OK", { status: 200 });
           }
 
@@ -851,7 +868,8 @@ Deno.serve(async (req) => {
           await supabase.from("pending_cancellations").delete().eq("patient_phone", from).eq("org_id", org.id);
 
           await sendWhatsAppMessage(
-            from,
+            conversationId,
+            accountId,
             result.success
               ? "That appointment has been cancelled. Let us know if you'd like to rebook."
               : "Sorry, I couldn't cancel that appointment. Please contact the clinic directly."
@@ -859,8 +877,6 @@ Deno.serve(async (req) => {
 
           return new Response("OK", { status: 200 });
         }
-        // No pending cancellation on record — fall through below to normal
-        // Claude handling.
       }
 
       const convo = await loadConversation(from, org.id);
@@ -873,6 +889,7 @@ Deno.serve(async (req) => {
             messages: messages.slice(-20),
             last_message_at: new Date().toISOString(),
             unread_count: convo.unreadCount + 1,
+            zernio_conversation_id: conversationId,
           })
           .eq("patient_phone", from)
           .eq("org_id", org.id);
@@ -881,13 +898,15 @@ Deno.serve(async (req) => {
 
       const reply = await runClaude(messages, org.id, from);
 
-      await sendWhatsAppMessage(from, reply);
+      await sendWhatsAppMessage(conversationId, accountId, reply);
       await saveConversation(
         from,
         org.id,
         [...messages, { role: "assistant", content: reply }],
         convo.assignedStaffId,
-        convo.unreadCount
+        convo.unreadCount,
+        conversationId,
+        patientName
       );
 
       return new Response("OK", { status: 200 });
@@ -899,4 +918,3 @@ Deno.serve(async (req) => {
 
   return new Response("Method not allowed", { status: 405 });
 });
-
