@@ -1,11 +1,9 @@
 // supabase/functions/whatsapp-webhook/index.ts
 //
-// ClinicBook Pro — WhatsApp AI Receptionist (v5.1 — Zernio migration + dedup)
-// Base: v5.0 (Zernio migration) — all booking/cancel/waitlist/escalation
-// logic is UNCHANGED. What changed in this version: added an idempotency
-// check right after payload validation, so duplicate Zernio deliveries of
-// the same message.id (e.g. from a duplicate webhook subscription) only
-// ever get processed once instead of triggering repeated Claude replies.
+// ClinicBook Pro — WhatsApp AI Receptionist (v5.2 — Zernio migration + dedup + template send)
+// Base: v5.1 (dedup fix) — all booking/cancel/waitlist/escalation logic is
+// UNCHANGED. What changed in this version: sendWaitlistTemplate() now sends
+// a real approved-template message via Zernio instead of a plain message.
 //
 // Key differences from v4.1 (Meta Cloud API direct):
 // - Org lookup is now keyed on Zernio's account.id, not Meta's phone_number_id.
@@ -16,14 +14,16 @@
 // - No GET-based webhook verification challenge — Zernio's webhook setup
 //   is just "give it a URL", unlike Meta's hub.mode/hub.challenge dance.
 //
-// KNOWN GAP (flagged, not silently papered over): sendWaitlistTemplate()
-// below sends a normal free-form message via Zernio, not a Meta-style
-// approved template. On Meta directly, free-form messages outside the 24h
-// customer-service window are silently dropped. Zernio's docs mention a
-// `template` field on their create-conversation endpoint for this exact
-// case, but we haven't confirmed the exact request shape yet. If waitlist
-// offers stop arriving for patients who haven't messaged recently, this is
-// the first place to check.
+// TEMPLATE SEND (confirmed against Zernio's docs): sendWaitlistTemplate()
+// below sends via Zernio's `template` field on the send-message endpoint —
+//   { accountId, template: { elements: [{ name, language, components }] } }
+// — required because this send happens mid-conversation right after a
+// cancellation, which is often outside the patient's 24h session window.
+// This uses the SAME approved Meta template — `waitlist_slot_available` —
+// used by notify-waitlist-on-new-slot. Worth a one-time check that Zernio's
+// template list (dashboard or `zernio.whatsapp.listWhatsAppTemplates`)
+// actually sees this template, since it was originally registered directly
+// through Meta rather than through Zernio's own template CRUD.
 //
 // DEDUP NOTE: requires the processed_webhook_messages table (see migration
 // in project notes) and, ideally, the pg_cron prune job that clears rows
@@ -47,6 +47,10 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ZERNIO_API_KEY = Deno.env.get("ZERNIO_API_KEY")!;
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
+
+// Must exactly match the approved template shared with notify-waitlist-on-new-slot.
+const WAITLIST_TEMPLATE_NAME = "waitlist_slot_available";
+const WAITLIST_TEMPLATE_LANGUAGE = "en_US";
 
 // How long a waitlist offer stays valid before it's considered expired.
 const WAITLIST_OFFER_WINDOW_MS = 60 * 60 * 1000; // 1 hour
@@ -252,6 +256,50 @@ async function sendWhatsAppMessage(conversationId: string, accountId: string, te
 }
 
 // ---------------------------------------------------------------------------
+// Send an APPROVED TEMPLATE message via Zernio — distinct from
+// sendWhatsAppMessage above (plain text), which only works inside an active
+// 24h session. Use this for any proactive/outside-session send.
+// ---------------------------------------------------------------------------
+async function sendWhatsAppTemplateMessage(
+  conversationId: string,
+  accountId: string,
+  templateName: string,
+  templateLanguage: string,
+  bodyParams: string[]
+) {
+  const res = await fetch(`https://zernio.com/api/v1/inbox/conversations/${conversationId}/messages`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${ZERNIO_API_KEY}`,
+    },
+    body: JSON.stringify({
+      accountId,
+      template: {
+        elements: [
+          {
+            name: templateName,
+            language: templateLanguage,
+            components: [
+              {
+                type: "body",
+                parameters: bodyParams.map((text) => ({ type: "text", text })),
+              },
+            ],
+          },
+        ],
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    console.error("Zernio template send failed:", res.status, await res.text());
+    return false;
+  }
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Look up the Zernio conversationId + accountId for a given patient/org, so
 // we can send them a proactive message (waitlist offer, reminder) outside
 // of directly replying to an inbound webhook event. Relies on
@@ -278,8 +326,12 @@ async function getConversationRef(orgId: string, phone: string): Promise<{ conve
 }
 
 // ---------------------------------------------------------------------------
-// Waitlist offer notification — see KNOWN GAP note at top of file. Currently
-// sends as a plain message rather than a confirmed Meta/Zernio template.
+// Waitlist offer notification — fires right after a cancellation frees up a
+// slot, so it's almost always outside the patient's 24h session window.
+// Sends the same approved waitlist_slot_available template used by
+// notify-waitlist-on-new-slot. The approved template copy is expected to
+// prompt "reply YES to claim it" — that's what the YES short-circuit
+// earlier in this file listens for.
 // ---------------------------------------------------------------------------
 async function sendWaitlistTemplate(orgId: string, patientPhone: string, doctorName: string, slotDate: string) {
   const ref = await getConversationRef(orgId, patientPhone);
@@ -287,8 +339,10 @@ async function sendWaitlistTemplate(orgId: string, patientPhone: string, doctorN
     console.error("No known Zernio conversation for waitlist notify:", patientPhone);
     return;
   }
-  const text = `Good news — a slot just opened up with Dr. ${doctorName} on ${formatDateForPatient(slotDate)}. Reply YES to claim it, or it'll be offered to the next person on the waitlist.`;
-  await sendWhatsAppMessage(ref.conversationId, ref.accountId, text);
+  await sendWhatsAppTemplateMessage(ref.conversationId, ref.accountId, WAITLIST_TEMPLATE_NAME, WAITLIST_TEMPLATE_LANGUAGE, [
+    doctorName,
+    formatDateForPatient(slotDate),
+  ]);
 }
 
 // ---------------------------------------------------------------------------
