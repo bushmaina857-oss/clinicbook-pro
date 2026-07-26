@@ -1,12 +1,13 @@
 // supabase/functions/whatsapp-webhook/index.ts
 //
-// ClinicBook Pro — WhatsApp AI Receptionist (v5.0 — Zernio migration)
-// Base: v4.1 (Meta Cloud API direct) — all booking/cancel/waitlist/escalation
-// logic is UNCHANGED. What changed: the WhatsApp transport layer moved from
-// Meta's Cloud API directly to Zernio (https://zernio.com), which wraps
-// WhatsApp (and other platforms) behind a unified inbox API.
+// ClinicBook Pro — WhatsApp AI Receptionist (v5.1 — Zernio migration + dedup)
+// Base: v5.0 (Zernio migration) — all booking/cancel/waitlist/escalation
+// logic is UNCHANGED. What changed in this version: added an idempotency
+// check right after payload validation, so duplicate Zernio deliveries of
+// the same message.id (e.g. from a duplicate webhook subscription) only
+// ever get processed once instead of triggering repeated Claude replies.
 //
-// Key differences from v4.1:
+// Key differences from v4.1 (Meta Cloud API direct):
 // - Org lookup is now keyed on Zernio's account.id, not Meta's phone_number_id.
 // - Sending a message now requires BOTH a conversationId and an accountId
 //   (Zernio's inbox is conversation-based), not just a phone number.
@@ -23,6 +24,11 @@
 // case, but we haven't confirmed the exact request shape yet. If waitlist
 // offers stop arriving for patients who haven't messaged recently, this is
 // the first place to check.
+//
+// DEDUP NOTE: requires the processed_webhook_messages table (see migration
+// in project notes) and, ideally, the pg_cron prune job that clears rows
+// older than 30 days. Without the prune job the table just grows forever —
+// harmless but unnecessary.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -695,6 +701,45 @@ Deno.serve(async (req) => {
       if (!conversationId || !accountId || !from) {
         console.error("Malformed Zernio payload — missing conversation/account/sender:", JSON.stringify(body));
         return new Response("OK", { status: 200 });
+      }
+
+      // -----------------------------------------------------------------
+      // Idempotency check — Zernio may deliver the same message more than
+      // once (duplicate webhook subscription, retry, etc). We dedupe on
+      // the message's own id via an insert-and-check: if the insert hits
+      // the primary key conflict, we've already processed this message,
+      // so skip everything below and return 200 immediately. This is
+      // atomic, unlike a separate select-then-insert, so two
+      // near-simultaneous deliveries of the same message can't both slip
+      // through.
+      //
+      // Requires the processed_webhook_messages table:
+      //   CREATE TABLE IF NOT EXISTS processed_webhook_messages (
+      //     message_id text PRIMARY KEY,
+      //     processed_at timestamptz DEFAULT now()
+      //   );
+      // -----------------------------------------------------------------
+      const messageId = body.message?.id;
+
+      if (!messageId) {
+        // No id to dedupe on — log it so we notice, but don't block the
+        // message from being processed.
+        console.error("Zernio payload missing message.id — cannot dedupe:", JSON.stringify(body));
+      } else {
+        const { error: dedupeError } = await supabase
+          .from("processed_webhook_messages")
+          .insert({ message_id: messageId });
+
+        if (dedupeError) {
+          if (dedupeError.code === "23505") {
+            // Primary key violation = we've already seen this message.id.
+            console.log("Duplicate Zernio delivery, skipping:", messageId);
+            return new Response("OK", { status: 200 });
+          }
+          // Some other DB error on the dedupe insert — don't silently
+          // drop the message over an infra hiccup, just log and continue.
+          console.error("Dedup insert failed, processing anyway:", dedupeError);
+        }
       }
 
       const { data: org } = await supabase
