@@ -1016,4 +1016,8 @@ Deno.serve(async (req) => {
   }
 
   return new Response("Method not allowed", { status: 405 });
+<<<<<<< HEAD
 });
+=======
+});
+>>>>>>> 4b988968abaa3e3bfcce6997b209a1e6637047ef
