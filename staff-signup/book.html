@@ -252,6 +252,7 @@
 
 <footer>ClinicBook Pro</footer>
 
+
 <script type="module">
   import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
 
@@ -259,6 +260,7 @@
   const SUPABASE_URL = 'https://iyxumauddvmdfbukrzaa.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5eHVtYXVkZHZtZGZidWtyemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NDk5MTUsImV4cCI6MjA5ODIyNTkxNX0.5B2LHcgRdrRrJbrjKWbK-kqUUlHnws7nxl1fNeZrvHE';
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
 
   const params = new URLSearchParams(window.location.search);
   const doctorId = params.get("doctor");
