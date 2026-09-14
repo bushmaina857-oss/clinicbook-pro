@@ -1,36 +1,22 @@
 // supabase/functions/send-reminders/index.ts
 //
-// ClinicBook Pro — Appointment Reminders (v1.3 — Zernio migration, template send)
+// ClinicBook Pro — Appointment Reminders
 // Triggered every 15 minutes by pg_cron (see migration_reminders.sql).
-// Sends a reminder template message 24h and 1h before each confirmed
-// appointment, using appointments.reminder_24h_sent / reminder_1h_sent to
-// guarantee each reminder fires exactly once.
+// Sends a WhatsApp template message 24h and 1h before each confirmed
+// appointment, using appointments.reminder_24h_sent / reminder_1h_sent
+// to guarantee each reminder fires exactly once.
 //
-// TEMPLATE SEND (confirmed against Zernio's docs): reminders go out via
-// Zernio's `template` field on the send-message endpoint —
-//   { accountId, template: { elements: [{ name, language, components }] } }
-// — which is required to reach a patient outside their 24h session window
-// (true for essentially every 24h/1h-ahead reminder). This uses the SAME
-// approved Meta template — `appointment_reminder` — that was already
-// submitted and approved when the bot sent directly via Meta's Cloud API;
-// switching transport to Zernio does not require re-approval, since it's
-// the same underlying WABA.
-//
-// ONE THING STILL WORTH CONFIRMING: Zernio's template CRUD (createWhatsAppTemplate,
-// listWhatsAppTemplates) is how templates are normally registered when
-// created *through* Zernio. Since `appointment_reminder` was originally
-// submitted directly via Meta, not through Zernio's dashboard/API, it's
-// worth a quick check — via the Zernio dashboard or `zernio.whatsapp.listWhatsAppTemplates`
-// — that Zernio can see and reference it by name. If it can't, either
-// re-create the template entry in Zernio's system (same name/language, so
-// Meta doesn't require a fresh approval) or Zernio support can confirm how
-// pre-existing WABA templates get picked up.
+// NOTE: This requires an approved Meta message template (utility category).
+// Business-initiated messages outside the 24h session window are rejected
+// by Meta without one. Update TEMPLATE_NAME below to match the exact
+// approved template name.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const ZERNIO_API_KEY = Deno.env.get("ZERNIO_API_KEY")!;
+const META_ACCESS_TOKEN = Deno.env.get("META_ACCESS_TOKEN")!;
+const META_PHONE_NUMBER_ID = Deno.env.get("META_PHONE_NUMBER_ID")!;
 
 const TEMPLATE_NAME = "appointment_reminder"; // must exactly match your approved template
 const TEMPLATE_LANGUAGE = "en";
@@ -42,91 +28,57 @@ function getTodayStr() {
 }
 
 // ---------------------------------------------------------------------------
-// Look up the Zernio conversationId + accountId for a given patient/org.
-// This is a cron job, not a reply to an inbound webhook, so there's no
-// conversation context handed to us — we have to look it up by org + phone,
-// same as getConversationRef() in whatsapp-webhook. If the patient has never
-// messaged in since the Zernio migration, there's nothing to send to.
+// Send the approved WhatsApp template
 // ---------------------------------------------------------------------------
-async function getConversationRef(orgId: string, phone: string): Promise<{ conversationId: string; accountId: string } | null> {
-  const { data: org } = await supabase
-    .from("organizations")
-    .select("zernio_account_id")
-    .eq("id", orgId)
-    .single();
-
-  const { data: convo } = await supabase
-    .from("whatsapp_conversations")
-    .select("zernio_conversation_id")
-    .eq("patient_phone", phone)
-    .eq("org_id", orgId)
-    .single();
-
-  if (!org?.zernio_account_id || !convo?.zernio_conversation_id) return null;
-
-  return { conversationId: convo.zernio_conversation_id, accountId: org.zernio_account_id };
-}
-
-// ---------------------------------------------------------------------------
-// Send the reminder via Zernio's approved-template mechanism. Body params
-// are positional (1: patient name, 2: doctor name, 3: date, 4: time),
-// matching the order the appointment_reminder template was approved with.
-// If Zernio can't resolve the template by name (see note at top of file
-// re: templates registered directly via Meta vs through Zernio), this call
-// will fail loudly with an error from Zernio rather than silently — that
-// error will show up in the `results` array this function returns, and in
-// the function logs.
-// ---------------------------------------------------------------------------
-async function sendReminderMessage(
-  conversationId: string,
-  accountId: string,
+async function sendReminderTemplate(
+  to: string,
   patientName: string,
   doctorName: string,
   dateStr: string,
   timeStr: string
 ) {
-  const res = await fetch(`https://zernio.com/api/v1/inbox/conversations/${conversationId}/messages`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${ZERNIO_API_KEY}`,
-    },
-    body: JSON.stringify({
-      accountId,
-      template: {
-        elements: [
-          {
-            name: TEMPLATE_NAME,
-            language: TEMPLATE_LANGUAGE,
-            components: [
-              {
-                type: "body",
-                parameters: [
-                  { type: "text", text: patientName },
-                  { type: "text", text: doctorName },
-                  { type: "text", text: dateStr },
-                  { type: "text", text: timeStr },
-                ],
-              },
-            ],
-          },
-        ],
+  const res = await fetch(
+    `https://graph.facebook.com/v20.0/${META_PHONE_NUMBER_ID}/messages`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${META_ACCESS_TOKEN}`,
       },
-    }),
-  });
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to,
+        type: "template",
+        template: {
+          name: TEMPLATE_NAME,
+          language: { code: TEMPLATE_LANGUAGE },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                { type: "text", text: patientName },
+                { type: "text", text: doctorName },
+                { type: "text", text: dateStr },
+                { type: "text", text: timeStr },
+              ],
+            },
+          ],
+        },
+      }),
+    }
+  );
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`Zernio template send failed: ${res.status} ${errText}`);
-  }
-  return res.json().catch(() => ({}));
+  const data = await res.json();
+  if (!res.ok) throw new Error(JSON.stringify(data));
+  return data;
 }
 
 // ---------------------------------------------------------------------------
 // Fetch confirmed appointments needing a reminder in a given window
-// (unchanged from v1 — two-step lookup pattern to avoid the FK-ambiguity
-// issue already hit and fixed elsewhere in this project)
 // ---------------------------------------------------------------------------
+// Same two-step lookup pattern used in the webhook (appointments -> schedules
+// -> staff) rather than a nested PostgREST join, to avoid the FK-ambiguity
+// issue already hit and fixed elsewhere in this project.
 async function getAppointmentsDueForReminder(
   reminderField: "reminder_24h_sent" | "reminder_1h_sent",
   windowStartMinutes: number,
@@ -167,7 +119,6 @@ async function getAppointmentsDueForReminder(
   const now = new Date();
   const due: {
     appointment_id: string;
-    org_id: string;
     patient_name: string;
     patient_phone: string;
     doctor_name: string;
@@ -189,7 +140,6 @@ async function getAppointmentsDueForReminder(
     if (minutesUntil >= windowStartMinutes && minutesUntil < windowEndMinutes) {
       due.push({
         appointment_id: a.id,
-        org_id: a.org_id,
         patient_name: a.patient_name,
         patient_phone: a.patient_phone,
         doctor_name: staffMap.get(sched.staff_id) || "your doctor",
@@ -225,27 +175,8 @@ Deno.serve(async () => {
       const timeStr = appt.start_time.slice(0, 5); // HH:MM
 
       try {
-        const ref = await getConversationRef(appt.org_id, appt.patient_phone);
-        if (!ref) {
-          // No known Zernio conversation for this patient — most likely
-          // they haven't messaged in since the Zernio migration, so we
-          // have no conversationId to send to. Not marking reminder_sent
-          // here so this doesn't look like a silent success.
-          console.error(
-            `No Zernio conversation found for reminder, skipping: ${appt.appointment_id} (${appt.patient_phone})`
-          );
-          results.push({
-            appointment_id: appt.appointment_id,
-            window: w.field,
-            status: "failed",
-            error: "no_zernio_conversation",
-          });
-          continue;
-        }
-
-        await sendReminderMessage(
-          ref.conversationId,
-          ref.accountId,
+        await sendReminderTemplate(
+          appt.patient_phone,
           appt.patient_name,
           appt.doctor_name,
           dateStr,
