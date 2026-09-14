@@ -1,11 +1,11 @@
 // supabase/functions/whatsapp-webhook/index.ts
 //
-// ClinicBook Pro — WhatsApp AI Receptionist (v4.1)
-// Base: v4 (waitlist template on cancellation offers, YES keyword resolves
-// waitlist offers with re-verification + re-queue on race) — unchanged.
-// New in v4.1: dates sent to patients (waitlist offer + YES confirmation)
-// are now formatted as "July 22, 2026" instead of raw "2026-07-22", to match
-// the approved waitlist_slot_available template's sample content.
+// ClinicBook Pro — WhatsApp AI Receptionist (v4.2)
+// Base: v4.1 (patient-facing dates formatted as "July 22, 2026") — unchanged.
+// New in v4.2: system prompt now explicitly forbids markdown tables/headers,
+// since WhatsApp doesn't render them — Claude was outputting raw "| Doctor |
+// Specialty |" pipe tables for doctor lists. Told to use *bold*/_italic_/
+// line-by-line text or emoji bullets instead, which WhatsApp does render.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -91,7 +91,19 @@ you can from the conversation: patient_name, reason_category, requested_slot
 "medical question"), and priority ("low", "medium", "high", "urgent").
 
 Keep replies short and warm, appropriate for WhatsApp. Always confirm key details
-(date, time, doctor name) back to the patient before finalizing a booking action.`;
+(date, time, doctor name) back to the patient before finalizing a booking action.
+
+FORMATTING — WHATSAPP ONLY, NOT MARKDOWN:
+WhatsApp does not render markdown tables, headers (#), or numbered/bulleted
+list syntax as formatting — patients would see raw pipe characters, dashes,
+and hash symbols as literal text. Never use markdown tables (| col | col |)
+or headers in any reply. WhatsApp only renders *bold*, _italic_, and
+~strikethrough~. For lists of options (like available doctors or time slots),
+use simple line-by-line text with emoji bullets or *bold* labels instead,
+for example:
+
+🩺 *Dr. Jane Smith* — Orthopedics
+🩺 *Dr. John Doe* — Cardiology`;
 
 // ---------------------------------------------------------------------------
 // TOOLS
