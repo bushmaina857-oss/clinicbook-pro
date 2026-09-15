@@ -1,6 +1,17 @@
 // supabase/functions/send-reminders/index.ts
 //
-// ClinicBook Pro — Appointment Reminders
+// ClinicBook Pro — Appointment Reminders (v1.4)
+// Base: v1.3 — unchanged.
+// New in v1.4: two timezone bugs fixed, both caused by treating Kenya-local
+// values as if they were UTC on Supabase's UTC-running Deno server:
+//   1. getTodayStr() used toISOString() (UTC) instead of Nairobi time —
+//      could exclude/include the wrong day's schedules right at the UTC/EAT
+//      day boundary (21:00-00:00 UTC = midnight-3AM Nairobi).
+//   2. appointmentDateTime parsed "YYYY-MM-DDTHH:MM:SS" with no timezone
+//      marker, so JS treated it as UTC instead of Nairobi time — a real bug,
+//      shifting every reminder window by a flat 3 hours. Fixed by appending
+//      the fixed +03:00 offset (Kenya has no DST, so this is always safe).
+//
 // Triggered every 15 minutes by pg_cron (see migration_reminders.sql).
 // Sends a WhatsApp template message 24h and 1h before each confirmed
 // appointment, using appointments.reminder_24h_sent / reminder_1h_sent
@@ -24,7 +35,9 @@ const TEMPLATE_LANGUAGE = "en";
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 function getTodayStr() {
-  return new Date().toISOString().split("T")[0];
+  // en-CA locale formats as YYYY-MM-DD; timeZone pins it to Kenya time
+  // regardless of the server's own timezone (Supabase runs on UTC).
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Nairobi" });
 }
 
 // ---------------------------------------------------------------------------
@@ -130,11 +143,13 @@ async function getAppointmentsDueForReminder(
     const sched = scheduleMap.get(a.schedule_id);
     if (!sched) continue; // schedule missing or in the past
 
-    // slot_date is a DATE (YYYY-MM-DD), start_time is a TIME (HH:MM:SS).
-    // Combined here as clinic-local wall-clock time. If reminders arrive
-    // shifted by a fixed number of hours, this is where to add a timezone
-    // offset — there's no timezone column in schedules today.
-    const appointmentDateTime = new Date(`${sched.slot_date}T${sched.start_time}`);
+    // slot_date is a DATE (YYYY-MM-DD), start_time is a TIME (HH:MM:SS),
+    // both stored as clinic-local (Kenya, UTC+3) wall-clock values. The
+    // "+03:00" offset here is what makes JS parse this as Nairobi time
+    // instead of UTC — without it, Date() assumes the server's own
+    // timezone (UTC on Supabase), shifting every reminder by 3 hours.
+    // Kenya has no daylight saving, so this fixed offset is always correct.
+    const appointmentDateTime = new Date(`${sched.slot_date}T${sched.start_time}+03:00`);
     const minutesUntil = (appointmentDateTime.getTime() - now.getTime()) / 60000;
 
     if (minutesUntil >= windowStartMinutes && minutesUntil < windowEndMinutes) {
