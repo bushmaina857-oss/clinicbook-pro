@@ -1,16 +1,18 @@
 // supabase/functions/whatsapp-webhook/index.ts
 //
-// ClinicBook Pro — WhatsApp AI Receptionist (v4.2)
-// Base: v4.1 (patient-facing dates formatted as "July 22, 2026") — unchanged.
-// New in v4.2: system prompt now explicitly forbids markdown tables/headers,
-// since WhatsApp doesn't render them — Claude was outputting raw "| Doctor |
-// Specialty |" pipe tables for doctor lists. Told to use *bold*/_italic_/
-// line-by-line text or emoji bullets instead, which WhatsApp does render.
+// ClinicBook Pro — WhatsApp AI Receptionist (v4.3)
+// Base: v4.2 (WhatsApp formatting rule — no markdown tables/headers) — unchanged.
+// New in v4.3: getTodayStr() was using toISOString(), which returns UTC —
+// on a UTC server, Kenya's midnight-3AM window (UTC+3) got resolved to the
+// PREVIOUS day, so "today"/"tomorrow" and the check_availability date filter
+// were wrong during those hours. Now computed directly in Africa/Nairobi time.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 function getTodayStr() {
-  return new Date().toISOString().split("T")[0];
+  // en-CA locale formats as YYYY-MM-DD; timeZone pins it to Kenya time
+  // regardless of the server's own timezone (Supabase runs on UTC).
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Nairobi" });
 }
 
 // Formats a YYYY-MM-DD string into a human-readable date for patient-facing
