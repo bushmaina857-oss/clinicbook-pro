@@ -7,6 +7,16 @@
 //
 // v1.1: dates sent to patients are now formatted as "July 22, 2026" instead
 // of raw "2026-07-22", to match the approved template's sample content.
+//
+// v1.2: sendWaitlistTemplate() never checked Meta's response — a rejected
+// send (bad template params, unapproved template, etc.) failed completely
+// silently: no error anywhere, but the waitlist row still got marked
+// "offered" even though the patient never received anything. Now:
+//   - Meta's response is checked and its actual error body is logged +
+//     returned in this function's JSON response, so failures are visible.
+//   - The waitlist row is only marked "offered" AFTER a confirmed successful
+//     send, so a failed send correctly leaves the patient "waiting" instead
+//     of silently skipping them.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -30,32 +40,49 @@ function formatDateForPatient(dateStr: string): string {
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
+// Returns { ok: true } on a confirmed send, or { ok: false, error } with
+// Meta's actual rejection reason — never throws, so the caller can decide
+// what to do with a failed send (here: don't mark the row as offered).
 async function sendWaitlistTemplate(to: string, doctorName: string, slotDate: string) {
-  await fetch(`https://graph.facebook.com/v20.0/${META_PHONE_NUMBER_ID}/messages`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${META_ACCESS_TOKEN}`,
-    },
-    body: JSON.stringify({
-      messaging_product: "whatsapp",
-      to,
-      type: "template",
-      template: {
-        name: "waitlist_slot_available", // must match your approved template name exactly
-        language: { code: "en_US" },
-        components: [
-          {
-            type: "body",
-            parameters: [
-              { type: "text", text: doctorName },
-              { type: "text", text: formatDateForPatient(slotDate) },
-            ],
-          },
-        ],
+  try {
+    const res = await fetch(`https://graph.facebook.com/v20.0/${META_PHONE_NUMBER_ID}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${META_ACCESS_TOKEN}`,
       },
-    }),
-  });
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        to,
+        type: "template",
+        template: {
+          name: "waitlist_slot_available", // must match your approved template name exactly
+          language: { code: "en_US" },
+          components: [
+            {
+              type: "body",
+              parameters: [
+                { type: "text", text: doctorName },
+                { type: "text", text: formatDateForPatient(slotDate) },
+              ],
+            },
+          ],
+        },
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      console.error("Meta rejected waitlist template send:", JSON.stringify(data));
+      return { ok: false, error: data?.error?.message || JSON.stringify(data) };
+    }
+
+    return { ok: true, messageId: data?.messages?.[0]?.id };
+  } catch (err) {
+    console.error("Network/parse error sending waitlist template:", err);
+    return { ok: false, error: String(err) };
+  }
 }
 
 Deno.serve(async (req) => {
@@ -115,6 +142,22 @@ Deno.serve(async (req) => {
 
     const candidate = candidates[0];
 
+    // Send FIRST — only mark the row "offered" once we have confirmation
+    // the message actually went out. A failed send leaves the patient
+    // correctly sitting in "waiting", not silently skipped.
+    const sendResult = await sendWaitlistTemplate(candidate.patient_phone, doctorName, schedule.slot_date);
+
+    if (!sendResult.ok) {
+      return new Response(
+        JSON.stringify({
+          offered: false,
+          candidate: candidate.patient_name,
+          error: "WhatsApp send failed: " + sendResult.error,
+        }),
+        { status: 502, headers: CORS_HEADERS }
+      );
+    }
+
     await supabase
       .from("waitlist")
       .update({
@@ -124,10 +167,8 @@ Deno.serve(async (req) => {
       })
       .eq("id", candidate.id);
 
-    await sendWaitlistTemplate(candidate.patient_phone, doctorName, schedule.slot_date);
-
     return new Response(
-      JSON.stringify({ offered: true, candidate: candidate.patient_name }),
+      JSON.stringify({ offered: true, candidate: candidate.patient_name, message_id: sendResult.messageId }),
       { status: 200, headers: CORS_HEADERS }
     );
   } catch (err) {
