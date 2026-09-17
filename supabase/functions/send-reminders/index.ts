@@ -1,16 +1,17 @@
 // supabase/functions/send-reminders/index.ts
 //
-// ClinicBook Pro — Appointment Reminders (v1.4)
-// Base: v1.3 — unchanged.
-// New in v1.4: two timezone bugs fixed, both caused by treating Kenya-local
-// values as if they were UTC on Supabase's UTC-running Deno server:
-//   1. getTodayStr() used toISOString() (UTC) instead of Nairobi time —
-//      could exclude/include the wrong day's schedules right at the UTC/EAT
-//      day boundary (21:00-00:00 UTC = midnight-3AM Nairobi).
-//   2. appointmentDateTime parsed "YYYY-MM-DDTHH:MM:SS" with no timezone
-//      marker, so JS treated it as UTC instead of Nairobi time — a real bug,
-//      shifting every reminder window by a flat 3 hours. Fixed by appending
-//      the fixed +03:00 offset (Kenya has no DST, so this is always safe).
+// ClinicBook Pro — Appointment Reminders (v1.5)
+// Base: v1.4 — unchanged except for the WhatsApp template call.
+// New in v1.5: switched the template message from POSITIONAL body
+// parameters (type: "text", matched by order) to NAMED parameters
+// (type: "text", parameter_name: "..."), matching how the approved
+// appointment_reminder template was actually built in Meta's template
+// editor. Positional parameters silently mismatch (and Meta rejects the
+// send) when a template was created with named variables — this is what
+// caused the earlier silent-rejection issue.
+//
+// Confirmed approved template variable names, in order:
+//   {{patient_name}}, {{doctor_name}}, {{appointment_date}}, {{appointment_time}}
 //
 // Triggered every 15 minutes by pg_cron (see migration_reminders.sql).
 // Sends a WhatsApp template message 24h and 1h before each confirmed
@@ -69,10 +70,10 @@ async function sendReminderTemplate(
             {
               type: "body",
               parameters: [
-                { type: "text", text: patientName },
-                { type: "text", text: doctorName },
-                { type: "text", text: dateStr },
-                { type: "text", text: timeStr },
+                { type: "text", parameter_name: "patient_name", text: patientName },
+                { type: "text", parameter_name: "doctor_name", text: doctorName },
+                { type: "text", parameter_name: "appointment_date", text: dateStr },
+                { type: "text", parameter_name: "appointment_time", text: timeStr },
               ],
             },
           ],
@@ -205,12 +206,12 @@ Deno.serve(async () => {
 
         results.push({ appointment_id: appt.appointment_id, window: w.field, status: "sent" });
       } catch (err) {
-        console.error(`Failed to send ${w.field} reminder for ${appt.appointment_id}:`, err);
+        console.error(`Failed to send ${w.field} reminder for ${appt.appointment_id}:`, err instanceof Error ? err.message : String(err));
         results.push({
           appointment_id: appt.appointment_id,
           window: w.field,
           status: "failed",
-          error: String(err),
+          error: err instanceof Error ? err.message : String(err),
         });
       }
     }
