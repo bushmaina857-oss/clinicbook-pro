@@ -1,8 +1,9 @@
 // supabase/functions/whatsapp-webhook/index.ts
 //
-// ClinicBook Pro — WhatsApp AI Receptionist (v4.4)
+// ClinicBook Pro — WhatsApp AI Receptionist (v4.5)
 // Base: v4.3 (Nairobi-timezone getTodayStr fix) — unchanged elsewhere.
-// New in v4.4: book_appointment and join_waitlist were storing
+//
+// v4.4: book_appointment and join_waitlist were storing
 // input.patient_phone — a value Claude fills in from the CONVERSATION
 // TEXT, not the verified sender. If a patient typed their number back in
 // local format ("0708910797") instead of the clinic's own WhatsApp
@@ -10,12 +11,32 @@
 // patient_phone. Meta then rejected template sends to it later
 // (reminders, waitlist offers) with #131009 "malformed number", since
 // only E.164 (+countrycode...) is accepted for template messages.
-//
 // Fix: both tools now ignore input.patient_phone for storage and use the
 // verified webhook sender number instead (the `from` field passed down
 // through executeTool as `patientPhone`), run through normalizePhone()
 // so it's always a clean +E.164 string regardless of how Meta formats
 // wa_id (usually digits only, no leading "+").
+//
+// v4.5: v4.4 normalized phone numbers going INTO the database (+E.164)
+// but every lookup BY patient_phone still compared against the raw,
+// unprefixed `from` straight off the webhook — so the YES handler's
+// offer lookup and the CANCEL handler's appointment lookup silently
+// matched nothing after v4.4 deployed. A patient replying YES to a
+// waitlist offer fell through to normal Claude handling instead of being
+// recognized as a confirmation, which could re-trigger join_waitlist
+// (duplicate waitlist row) instead of actually booking. Fix: `from` is
+// now normalized once, immediately after being read from the payload,
+// and that single normalized value is used consistently for every
+// patient_phone read and write below — appointments, waitlist,
+// whatsapp_conversations, and pending_cancellations all agree on one
+// format from here on.
+//
+// NOTE: this changes the key format used for whatsapp_conversations
+// going forward. Any existing conversation row still keyed under the old
+// raw (no "+") phone format will not be found on that patient's next
+// message — effectively a one-time conversation-history reset for
+// existing testers. Not a concern for real patients since their first
+// message will always insert fresh under the new normalized format.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -701,7 +722,13 @@ Deno.serve(async (req) => {
       const message = change?.value?.messages?.[0];
       if (!message) return new Response("OK", { status: 200 });
 
-      const from = message.from;
+      // Normalized ONCE here and used consistently for every patient_phone
+      // lookup/storage below (appointments, waitlist, conversations,
+      // pending_cancellations). Meta's raw wa_id has no "+" — comparing it
+      // directly against the now-normalized +E.164 values stored in the
+      // database (see v4.4) silently matches nothing, which is what broke
+      // the YES/CANCEL lookups. One consistent format everywhere fixes it.
+      const from = normalizePhone(message.from);
       const text = message.text?.body;
       const metaPhoneNumberId = change.value.metadata.phone_number_id;
 
