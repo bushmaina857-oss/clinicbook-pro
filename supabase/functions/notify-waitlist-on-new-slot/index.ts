@@ -17,6 +17,13 @@
 //   - The waitlist row is only marked "offered" AFTER a confirmed successful
 //     send, so a failed send correctly leaves the patient "waiting" instead
 //     of silently skipping them.
+//
+// v1.3: switched the template message from POSITIONAL body parameters
+// (type: "text", matched by order) to NAMED parameters
+// (type: "text", parameter_name: "..."), matching how the approved
+// waitlist_slot_available template was actually built in Meta's template
+// editor. Confirmed approved variable names, in order:
+//   {{doctor_name}}, {{slot_date}}
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -62,8 +69,8 @@ async function sendWaitlistTemplate(to: string, doctorName: string, slotDate: st
             {
               type: "body",
               parameters: [
-                { type: "text", text: doctorName },
-                { type: "text", text: formatDateForPatient(slotDate) },
+                { type: "text", parameter_name: "doctor_name", text: doctorName },
+                { type: "text", parameter_name: "slot_date", text: formatDateForPatient(slotDate) },
               ],
             },
           ],
@@ -80,8 +87,8 @@ async function sendWaitlistTemplate(to: string, doctorName: string, slotDate: st
 
     return { ok: true, messageId: data?.messages?.[0]?.id };
   } catch (err) {
-    console.error("Network/parse error sending waitlist template:", err);
-    return { ok: false, error: String(err) };
+    console.error("Network/parse error sending waitlist template:", err instanceof Error ? err.message : String(err));
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
