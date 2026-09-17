@@ -1,11 +1,21 @@
 // supabase/functions/whatsapp-webhook/index.ts
 //
-// ClinicBook Pro — WhatsApp AI Receptionist (v4.3)
-// Base: v4.2 (WhatsApp formatting rule — no markdown tables/headers) — unchanged.
-// New in v4.3: getTodayStr() was using toISOString(), which returns UTC —
-// on a UTC server, Kenya's midnight-3AM window (UTC+3) got resolved to the
-// PREVIOUS day, so "today"/"tomorrow" and the check_availability date filter
-// were wrong during those hours. Now computed directly in Africa/Nairobi time.
+// ClinicBook Pro — WhatsApp AI Receptionist (v4.4)
+// Base: v4.3 (Nairobi-timezone getTodayStr fix) — unchanged elsewhere.
+// New in v4.4: book_appointment and join_waitlist were storing
+// input.patient_phone — a value Claude fills in from the CONVERSATION
+// TEXT, not the verified sender. If a patient typed their number back in
+// local format ("0708910797") instead of the clinic's own WhatsApp
+// account contacting them, that literal string got saved as
+// patient_phone. Meta then rejected template sends to it later
+// (reminders, waitlist offers) with #131009 "malformed number", since
+// only E.164 (+countrycode...) is accepted for template messages.
+//
+// Fix: both tools now ignore input.patient_phone for storage and use the
+// verified webhook sender number instead (the `from` field passed down
+// through executeTool as `patientPhone`), run through normalizePhone()
+// so it's always a clean +E.164 string regardless of how Meta formats
+// wa_id (usually digits only, no leading "+").
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -20,6 +30,14 @@ function getTodayStr() {
 function formatDateForPatient(dateStr: string): string {
   const date = new Date(dateStr + "T00:00:00");
   return date.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
+// Normalizes any phone string to a clean +E.164 form: strips everything
+// that isn't a digit, then prepends "+". Idempotent — safe to call on a
+// value that's already in +E.164 form. This does NOT validate the number
+// is real, just that its shape matches what Meta's template API requires.
+function normalizePhone(phone: string): string {
+  return "+" + phone.replace(/\D/g, "");
 }
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -135,16 +153,15 @@ const TOOLS = [
   },
   {
     name: "book_appointment",
-    description: "Book a confirmed appointment slot for a patient. Only call this after check_availability has confirmed an open slot_id.",
+    description: "Book a confirmed appointment slot for a patient. Only call this after check_availability has confirmed an open slot_id. The patient's own WhatsApp number is used automatically for the booking record — you do not need to collect or pass it.",
     input_schema: {
       type: "object",
       properties: {
         schedule_id: { type: "string" },
         patient_name: { type: "string" },
-        patient_phone: { type: "string" },
         reason: { type: "string" },
       },
-      required: ["schedule_id", "patient_name", "patient_phone"],
+      required: ["schedule_id", "patient_name"],
     },
   },
   {
@@ -172,16 +189,15 @@ const TOOLS = [
   },
   {
     name: "join_waitlist",
-    description: "Add a patient to the waitlist for a doctor when no slots are currently open. They will be messaged automatically if a matching slot frees up.",
+    description: "Add a patient to the waitlist for a doctor when no slots are currently open. They will be messaged automatically if a matching slot frees up. The patient's own WhatsApp number is used automatically for the waitlist record — you do not need to collect or pass it.",
     input_schema: {
       type: "object",
       properties: {
         doctor_name: { type: "string" },
         patient_name: { type: "string" },
-        patient_phone: { type: "string" },
         preferred_date: { type: "string", description: "YYYY-MM-DD, optional — omit if any day works" },
       },
-      required: ["doctor_name", "patient_name", "patient_phone"],
+      required: ["doctor_name", "patient_name"],
     },
   },
   {
@@ -234,7 +250,7 @@ async function sendWaitlistTemplate(to: string, doctorName: string, slotDate: st
     },
     body: JSON.stringify({
       messaging_product: "whatsapp",
-      to,
+      to: normalizePhone(to),
       type: "template",
       template: {
         name: "waitlist_slot_available", // must match your approved template name exactly
@@ -243,8 +259,8 @@ async function sendWaitlistTemplate(to: string, doctorName: string, slotDate: st
           {
             type: "body",
             parameters: [
-              { type: "text", text: doctorName },
-              { type: "text", text: formatDateForPatient(slotDate) },
+              { type: "text", parameter_name: "doctor_name", text: doctorName },
+              { type: "text", parameter_name: "slot_date", text: formatDateForPatient(slotDate) },
             ],
           },
         ],
@@ -353,6 +369,8 @@ async function executeTool(name: string, input: any, orgId: string, patientPhone
         break;
       }
 
+      // patient_phone always comes from the verified webhook sender
+      // (patientPhone), never from input — see v4.4 note at top of file.
       const { data, error } = await supabase
         .from("appointments")
         .insert({
@@ -360,7 +378,7 @@ async function executeTool(name: string, input: any, orgId: string, patientPhone
           schedule_id: input.schedule_id,
           staff_id: schedule.staff_id,
           patient_name: input.patient_name,
-          patient_phone: input.patient_phone,
+          patient_phone: normalizePhone(patientPhone),
           patient_reason: input.reason || null,
           status: "confirmed",
           source: "whatsapp_ai",
@@ -442,13 +460,15 @@ async function executeTool(name: string, input: any, orgId: string, patientPhone
         break;
       }
 
+      // patient_phone always comes from the verified webhook sender
+      // (patientPhone), never from input — see v4.4 note at top of file.
       const { data, error } = await supabase
         .from("waitlist")
         .insert({
           org_id: orgId,
           staff_id: doctors[0].id,
           patient_name: input.patient_name,
-          patient_phone: input.patient_phone,
+          patient_phone: normalizePhone(patientPhone),
           preferred_date: input.preferred_date || null,
           status: "waiting",
         })
@@ -795,7 +815,6 @@ Deno.serve(async (req) => {
             {
               schedule_id: offer.offered_schedule_id,
               patient_name: offer.patient_name,
-              patient_phone: offer.patient_phone,
             },
             org.id,
             from
