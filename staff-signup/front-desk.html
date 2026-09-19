@@ -110,6 +110,33 @@
     .msg { max-width: 75%; padding: 9px 13px; border-radius: 14px; font-size: 13.5px; line-height: 1.4; }
     .msg.user { align-self: flex-start; background: var(--teal-light); border-bottom-left-radius: 3px; }
     .msg.assistant { align-self: flex-end; background: #F1F0EC; border-bottom-right-radius: 3px; }
+    .msg.staff { align-self: flex-end; background: var(--teal); color: #fff; border-bottom-right-radius: 3px; }
+    .msg-sender-label { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; margin-bottom: 2px; display: block; }
+
+    /* ---------- Reply composer ---------- */
+    .composer {
+      display: flex; align-items: flex-end; gap: 8px; padding: 12px 18px;
+      border-top: 1px solid var(--border); background: var(--white); flex-shrink: 0;
+    }
+    .composer textarea {
+      flex: 1; resize: none; border: 1.5px solid var(--border); border-radius: 12px;
+      padding: 9px 12px; font-family: 'Inter', sans-serif; font-size: 13.5px;
+      line-height: 1.4; max-height: 90px; min-height: 38px; color: var(--text);
+    }
+    .composer textarea:focus { outline: none; border-color: var(--teal); }
+    .composer-send-btn {
+      appearance: none; border: none; background: var(--teal); color: #fff;
+      border-radius: 10px; padding: 0 16px; height: 38px; font-size: 13px; font-weight: 600;
+      cursor: pointer; font-family: 'Inter', sans-serif; flex-shrink: 0;
+    }
+    .composer-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .composer-locked {
+      padding: 14px 18px; text-align: center; font-size: 12.5px; color: var(--muted);
+      border-top: 1px solid var(--border); background: var(--bg); flex-shrink: 0;
+    }
+    .composer-error {
+      padding: 0 18px 8px; font-size: 12px; color: #DC2626; display: none;
+    }
 
     /* ---------- Appointments ---------- */
     .toolbar { display: flex; align-items: center; gap: 10px; }
@@ -442,7 +469,7 @@
   // ---------------------------------------------------------------------
   function fetchConversations() {
     return fetch(SUPABASE_URL + '/rest/v1/whatsapp_conversations?org_id=eq.' + myOrgId +
-      '&select=patient_phone,patient_name,messages,last_message_at,unread_count,ai_paused,escalation_summary' +
+      '&select=id,patient_phone,patient_name,messages,last_message_at,unread_count,ai_paused,escalation_summary,assigned_staff_id' +
       '&order=last_message_at.desc',
       { headers: authHeaders }
     ).then(safeJson);
@@ -508,25 +535,65 @@
     });
   }
 
+  function renderMessagesHtml(messages) {
+    return (messages || []).map(function(m) {
+      var cls = m.role === 'user' ? 'user' : (m.sent_by === 'staff' ? 'staff' : 'assistant');
+      var label = m.role === 'user' ? '' : (m.sent_by === 'staff' ? '<span class="msg-sender-label">Staff</span>' : '<span class="msg-sender-label">AI</span>');
+      return '<div class="msg ' + cls + '">' + label + escapeHtml(m.content) + '</div>';
+    }).join('');
+  }
+
+  function escapeHtml(str) {
+    var div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  function scrollMessagesToBottom() {
+    var el = document.querySelector('#convoDetail .messages');
+    if (el) el.scrollTop = el.scrollHeight;
+  }
+
+  // Only the assigned receptionist or an admin can actually send — matches
+  // the same check send-staff-reply enforces server-side. Shown here too
+  // so the composer doesn't invite a request that'll just get 403'd.
+  function canReplyTo(convo) {
+    if (!convo.ai_paused) return false;
+    if (myRole === 'admin') return true;
+    return convo.assigned_staff_id === myStaffId;
+  }
+
   function openConversation(phone) {
     selectedPhone = phone;
     var convo = conversationsCache.find(function(c) { return c.patient_phone === phone; });
     if (!convo) return;
 
-    var messagesHtml = (convo.messages || []).map(function(m) {
-      return '<div class="msg ' + (m.role === 'user' ? 'user' : 'assistant') + '">' + m.content + '</div>';
-    }).join('');
+    var messagesHtml = renderMessagesHtml(convo.messages);
 
     var escalationHtml = convo.escalation_summary
       ? '<div class="escalation-banner"><b>Escalated:</b> ' +
-        (convo.escalation_summary.needs_human_for || convo.escalation_summary.reason_category || 'See conversation') +
-        (convo.escalation_summary.priority ? ' — priority: ' + convo.escalation_summary.priority : '') + '</div>'
+        escapeHtml(convo.escalation_summary.needs_human_for || convo.escalation_summary.reason_category || 'See conversation') +
+        (convo.escalation_summary.priority ? ' — priority: ' + escapeHtml(convo.escalation_summary.priority) : '') + '</div>'
       : '';
+
+    var composerHtml;
+    if (canReplyTo(convo)) {
+      composerHtml =
+        '<div class="composer-error" id="composerError"></div>' +
+        '<div class="composer">' +
+          '<textarea id="replyInput" rows="1" placeholder="Type a reply to the patient…"></textarea>' +
+          '<button class="composer-send-btn" id="replySendBtn">Send</button>' +
+        '</div>';
+    } else if (convo.ai_paused) {
+      composerHtml = '<div class="composer-locked">This conversation is assigned to another staff member.</div>';
+    } else {
+      composerHtml = '<div class="composer-locked">Take over from AI above to reply directly to this patient.</div>';
+    }
 
     var detail = document.getElementById('convoDetail');
     detail.innerHTML =
       '<div class="convo-detail-header">' +
-        '<div><h3>' + (convo.patient_name || 'Unknown patient') + '</h3><div class="phone">' + convo.patient_phone + '</div></div>' +
+        '<div><h3>' + escapeHtml(convo.patient_name || 'Unknown patient') + '</h3><div class="phone">' + escapeHtml(convo.patient_phone) + '</div></div>' +
         '<button class="close-detail-btn" id="closeDetailBtn">&times;</button>' +
       '</div>' +
       escalationHtml +
@@ -535,11 +602,30 @@
           (convo.ai_paused ? 'Return to AI' : 'Take over from AI') +
         '</button>' +
       '</div>' +
-      '<div class="messages">' + (messagesHtml || '<p style="color:var(--muted);font-size:13px;">No messages yet.</p>') + '</div>';
+      '<div class="messages">' + (messagesHtml || '<p style="color:var(--muted);font-size:13px;">No messages yet.</p>') + '</div>' +
+      composerHtml;
 
     document.getElementById('convoOverlay').classList.add('active');
     document.getElementById('closeDetailBtn').addEventListener('click', closeConversation);
     document.getElementById('toggleAiBtn').addEventListener('click', function() { toggleAiPause(convo); });
+
+    var sendBtn = document.getElementById('replySendBtn');
+    if (sendBtn) {
+      var textarea = document.getElementById('replyInput');
+      sendBtn.addEventListener('click', function() { sendStaffReply(convo); });
+      textarea.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendStaffReply(convo);
+        }
+      });
+      textarea.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 90) + 'px';
+      });
+    }
+
+    scrollMessagesToBottom();
 
     if (convo.unread_count > 0) {
       fetch(SUPABASE_URL + '/rest/v1/whatsapp_conversations?patient_phone=eq.' + encodeURIComponent(phone) + '&org_id=eq.' + myOrgId, {
@@ -551,6 +637,51 @@
     }
   }
 
+  // ---------------------------------------------------------------------
+  // SEND REPLY — calls the send-staff-reply Edge Function, which verifies
+  // the session, confirms this staff member is assigned/admin, sends via
+  // Meta, and appends the message server-side. On success we optimistically
+  // append the same message locally too, so it shows immediately instead of
+  // waiting for the next 12s poll.
+  // ---------------------------------------------------------------------
+  function sendStaffReply(convo) {
+    var textarea = document.getElementById('replyInput');
+    var sendBtn = document.getElementById('replySendBtn');
+    var errorBox = document.getElementById('composerError');
+    var text = textarea.value.trim();
+    if (!text) return;
+
+    sendBtn.disabled = true;
+    textarea.disabled = true;
+    errorBox.style.display = 'none';
+
+    fetch(SUPABASE_URL + '/functions/v1/send-staff-reply', {
+      method: 'POST',
+      headers: authHeaders,
+      body: JSON.stringify({ conversation_id: convo.id, text: text })
+    }).then(safeJson).then(function() {
+      convo.messages = (convo.messages || []).concat([{ role: 'assistant', content: text, sent_by: 'staff', staff_id: myStaffId }]).slice(-20);
+      convo.last_message_at = new Date().toISOString();
+
+      textarea.value = '';
+      textarea.style.height = 'auto';
+
+      var messagesEl = document.querySelector('#convoDetail .messages');
+      if (messagesEl) {
+        messagesEl.innerHTML = renderMessagesHtml(convo.messages);
+        scrollMessagesToBottom();
+      }
+      renderConvoList();
+    }).catch(function(err) {
+      errorBox.textContent = 'Could not send: ' + err.message;
+      errorBox.style.display = 'block';
+    }).finally(function() {
+      sendBtn.disabled = false;
+      textarea.disabled = false;
+      textarea.focus();
+    });
+  }
+
   function closeConversation() {
     document.getElementById('convoOverlay').classList.remove('active');
     selectedPhone = null;
@@ -558,10 +689,17 @@
 
   function toggleAiPause(convo) {
     var newPaused = !convo.ai_paused;
+    var patch = { ai_paused: newPaused };
+    // Claiming the conversation for yourself when taking over, if nobody's
+    // assigned yet — otherwise the composer would stay locked for you too.
+    if (newPaused && !convo.assigned_staff_id) {
+      patch.assigned_staff_id = myStaffId;
+    }
     fetch(SUPABASE_URL + '/rest/v1/whatsapp_conversations?patient_phone=eq.' + encodeURIComponent(convo.patient_phone) + '&org_id=eq.' + myOrgId, {
-      method: 'PATCH', headers: authHeaders, body: JSON.stringify({ ai_paused: newPaused })
+      method: 'PATCH', headers: authHeaders, body: JSON.stringify(patch)
     }).then(safeJson).then(function() {
       convo.ai_paused = newPaused;
+      if (patch.assigned_staff_id) convo.assigned_staff_id = patch.assigned_staff_id;
       openConversation(convo.patient_phone);
       renderConvoList();
     }).catch(function(err) { alert('Could not update: ' + err.message); });
