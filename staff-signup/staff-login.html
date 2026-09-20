@@ -112,17 +112,26 @@
 
   <a class="back-link" href="index.html">&#8592; Back to patient portal</a>
 
+  <script src="session.js"></script>
   <script>
-    var SUPABASE_URL = 'https://iyxumauddvmdfbukrzaa.supabase.co';
-    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5eHVtYXVkZHZtZGZidWtyemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NDk5MTUsImV4cCI6MjA5ODIyNTkxNX0.5B2LHcgRdrRrJbrjKWbK-kqUUlHnws7nxl1fNeZrvHE';
+    // This page manages its own session lifecycle (it's what CREATES the
+    // session), so it intentionally does not call CB.requireSession() —
+    // that would just bounce back here. It reuses CB's constants and
+    // CB.safeJson so the anon key and error-parsing logic live in one
+    // place instead of being copy-pasted per page.
+    var SUPABASE_URL = CB.SUPABASE_URL;
+    var SUPABASE_ANON_KEY = CB.SUPABASE_ANON_KEY;
 
-    // If already logged in, try to redirect straight to dashboard
+    // If already logged in, try to redirect straight to dashboard.
+    // (Supabase's token response — stored here in full — already includes
+    // refresh_token; session.js's CB.refreshSession() is what uses it on
+    // every other page once this initial token eventually expires.)
     var stored = localStorage.getItem('clinicbook_pro_session');
     if (stored) {
       try {
-        var session = JSON.parse(stored);
-        if (session && session.access_token) {
-          redirectToDashboard(session.access_token, session.user.id);
+        var storedSession = JSON.parse(stored);
+        if (storedSession && storedSession.access_token) {
+          redirectToDashboard(storedSession.access_token, storedSession.user.id);
         }
       } catch(e) {
         localStorage.removeItem('clinicbook_pro_session');
@@ -179,19 +188,11 @@
             showError('Your account has been deactivated. Please contact your organization admin.');
             return;
           }
-          if (staff.role === 'admin') {
-            window.location.href = 'admin-dashboard.html';
-          } else if (staff.role === 'receptionist') {
-            window.location.href = 'receptionist-dashboard.html';
-          } else if (staff.role === 'doctor') {
-            window.location.href = 'doctor-dashboard.html';
-          } else {
-            showError('Unrecognized role on your account. Please contact support.');
-          }
+          window.location.href = CB.dashboardUrlForRole(staff.role);
           return;
         }
 
-        // No staff record yet \u2014 check if they have a pending join request
+        // No staff record yet — check if they have a pending join request
         return fetchMyJoinRequest(accessToken, userId).then(function(requests) {
           if (requests.length) {
             var req = requests[0];
