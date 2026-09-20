@@ -565,6 +565,13 @@
 
   function openConversation(phone) {
     selectedPhone = phone;
+    // Pause the background list poll while a conversation is open — it was
+    // racing with the toggle-AI click: a poll response landing right after
+    // a toggle's own re-render could silently overwrite it with stale
+    // pre-toggle data, making the button look unresponsive. No poll running
+    // while a conversation is open means no race.
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+
     var convo = conversationsCache.find(function(c) { return c.patient_phone === phone; });
     if (!convo) return;
 
@@ -685,9 +692,16 @@
   function closeConversation() {
     document.getElementById('convoOverlay').classList.remove('active');
     selectedPhone = null;
+    // Resume the background poll now that no detail view is open to race with.
+    if (!pollTimer) {
+      pollTimer = setInterval(loadConversations, 12000);
+    }
   }
 
   function toggleAiPause(convo) {
+    var btn = document.getElementById('toggleAiBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Updating…'; }
+
     var newPaused = !convo.ai_paused;
     var patch = { ai_paused: newPaused };
     // Claiming the conversation for yourself when taking over, if nobody's
@@ -702,7 +716,10 @@
       if (patch.assigned_staff_id) convo.assigned_staff_id = patch.assigned_staff_id;
       openConversation(convo.patient_phone);
       renderConvoList();
-    }).catch(function(err) { alert('Could not update: ' + err.message); });
+    }).catch(function(err) {
+      alert('Could not update: ' + err.message);
+      if (btn) { btn.disabled = false; btn.textContent = convo.ai_paused ? 'Return to AI' : 'Take over from AI'; }
+    });
   }
 
   function loadConversations() {
