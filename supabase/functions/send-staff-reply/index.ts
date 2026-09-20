@@ -1,9 +1,19 @@
 // supabase/functions/send-staff-reply/index.ts
 //
-// ClinicBook Pro — Manual staff reply sender
-// Called from inbox.html when a receptionist has taken over a conversation
-// and wants to send a message directly to the patient over WhatsApp.
-// Keeps the Meta access token server-side (never exposed to the browser).
+// ClinicBook Pro — Manual staff reply sender (v1.1)
+// Base: v1.0 — unchanged elsewhere.
+// New in v1.1: added CORS handling. This function is called directly from
+// the browser (front-desk.html) with custom headers (apikey, Authorization,
+// Content-Type), which triggers a preflight OPTIONS request. Without
+// Access-Control-Allow-Origin on the response (and without handling OPTIONS
+// at all), the browser blocked every request before it ever reached this
+// function — same CORS pattern already handled correctly in
+// notify-waitlist-on-new-slot, just missing here.
+//
+// Called from front-desk.html when a receptionist has taken over a
+// conversation and wants to send a message directly to the patient over
+// WhatsApp. Keeps the Meta access token server-side (never exposed to the
+// browser).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -13,6 +23,12 @@ const META_ACCESS_TOKEN = Deno.env.get("META_ACCESS_TOKEN")!;
 const META_PHONE_NUMBER_ID = Deno.env.get("META_PHONE_NUMBER_ID")!;
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
 
 async function sendWhatsAppMessage(to: string, text: string) {
   const res = await fetch(`https://graph.facebook.com/v20.0/${META_PHONE_NUMBER_ID}/messages`, {
@@ -31,15 +47,19 @@ async function sendWhatsAppMessage(to: string, text: string) {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: CORS_HEADERS });
+  }
+
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
+    return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: CORS_HEADERS });
   }
 
   try {
     // Verify the caller is an authenticated staff member (not just anyone with the URL)
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing authorization" }), { status: 401 });
+      return new Response(JSON.stringify({ error: "Missing authorization" }), { status: 401, headers: CORS_HEADERS });
     }
 
     const userClient = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
@@ -47,12 +67,12 @@ Deno.serve(async (req) => {
     });
     const { data: { user }, error: authError } = await userClient.auth.getUser();
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Invalid session" }), { status: 401 });
+      return new Response(JSON.stringify({ error: "Invalid session" }), { status: 401, headers: CORS_HEADERS });
     }
 
     const { conversation_id, text } = await req.json();
     if (!conversation_id || !text || !text.trim()) {
-      return new Response(JSON.stringify({ error: "Missing conversation_id or text" }), { status: 400 });
+      return new Response(JSON.stringify({ error: "Missing conversation_id or text" }), { status: 400, headers: CORS_HEADERS });
     }
 
     // Confirm this staff member belongs to the same org as the conversation,
@@ -64,7 +84,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (convoError || !convo) {
-      return new Response(JSON.stringify({ error: "Conversation not found" }), { status: 404 });
+      return new Response(JSON.stringify({ error: "Conversation not found" }), { status: 404, headers: CORS_HEADERS });
     }
 
     const { data: staff, error: staffError } = await supabase
@@ -74,7 +94,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (staffError || !staff || staff.org_id !== convo.org_id) {
-      return new Response(JSON.stringify({ error: "Not authorized for this conversation" }), { status: 403 });
+      return new Response(JSON.stringify({ error: "Not authorized for this conversation" }), { status: 403, headers: CORS_HEADERS });
     }
 
     const isAssigned = convo.assigned_staff_id === staff.id;
@@ -82,7 +102,7 @@ Deno.serve(async (req) => {
     if (!isAssigned && !isAdmin) {
       return new Response(
         JSON.stringify({ error: "Only the assigned receptionist or an admin can reply here" }),
-        { status: 403 }
+        { status: 403, headers: CORS_HEADERS }
       );
     }
 
@@ -90,7 +110,7 @@ Deno.serve(async (req) => {
     const metaResult = await sendWhatsAppMessage(convo.patient_phone, text.trim());
     if (metaResult.error) {
       console.error("Meta send error:", metaResult.error);
-      return new Response(JSON.stringify({ error: "Failed to send WhatsApp message" }), { status: 502 });
+      return new Response(JSON.stringify({ error: "Failed to send WhatsApp message" }), { status: 502, headers: CORS_HEADERS });
     }
 
     // Append to conversation history so the AI has context if takeover ends later
@@ -104,9 +124,9 @@ Deno.serve(async (req) => {
       })
       .eq("id", conversation_id);
 
-    return new Response(JSON.stringify({ success: true }), { status: 200 });
+    return new Response(JSON.stringify({ success: true }), { status: 200, headers: CORS_HEADERS });
   } catch (err) {
     console.error(err);
-    return new Response(JSON.stringify({ error: "Unexpected error" }), { status: 500 });
+    return new Response(JSON.stringify({ error: "Unexpected error" }), { status: 500, headers: CORS_HEADERS });
   }
 });
