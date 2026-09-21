@@ -31,6 +31,15 @@
 // whatsapp_conversations, and pending_cancellations all agree on one
 // format from here on.
 //
+// v4.6: sendWhatsAppMessage and sendWaitlistTemplate never checked Meta's
+// response — a rejected send (bad param, rate limit, anything) resolved
+// the fetch() promise normally (fetch only rejects on network failure,
+// not on 4xx/5xx), so the function logged nothing, returned 200 to Meta,
+// and saved the conversation as if the reply had gone out. From the
+// patient's side this looked like total silence with zero trace in any
+// log. Fix: both now check res.ok and console.error the parsed response
+// body on failure, so a rejected send is actually visible going forward.
+//
 // NOTE: this changes the key format used for whatsapp_conversations
 // going forward. Any existing conversation row still keyed under the old
 // raw (no "+") phone format will not be found on that patient's next
@@ -263,7 +272,7 @@ async function logToolCall(orgId: string, patientPhone: string, toolName: string
 // reminders). Free-form text is silently dropped by Meta outside that window.
 // ---------------------------------------------------------------------------
 async function sendWaitlistTemplate(to: string, doctorName: string, slotDate: string) {
-  await fetch(`https://graph.facebook.com/v20.0/${META_PHONE_NUMBER_ID}/messages`, {
+  const res = await fetch(`https://graph.facebook.com/v20.0/${META_PHONE_NUMBER_ID}/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -288,6 +297,16 @@ async function sendWaitlistTemplate(to: string, doctorName: string, slotDate: st
       },
     }),
   });
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error(
+      `sendWaitlistTemplate FAILED (status ${res.status}) for ${normalizePhone(to)}:`,
+      errBody
+    );
+  }
+
+  return res.ok;
 }
 
 // ---------------------------------------------------------------------------
@@ -560,6 +579,12 @@ async function runClaude(messages: any[], orgId: string, patientPhone: string) {
     });
 
     const data = await res.json();
+
+    if (!res.ok) {
+      console.error(`Anthropic API call FAILED (status ${res.status}):`, JSON.stringify(data));
+      return "Sorry, I'm having trouble processing that right now. Let me connect you with the clinic staff.";
+    }
+
     const toolUses = (data.content || []).filter((b: any) => b.type === "tool_use");
     const textBlocks = (data.content || []).filter((b: any) => b.type === "text");
 
@@ -588,7 +613,7 @@ async function runClaude(messages: any[], orgId: string, patientPhone: string) {
 // Send reply via Meta Cloud API
 // ---------------------------------------------------------------------------
 async function sendWhatsAppMessage(to: string, text: string) {
-  await fetch(`https://graph.facebook.com/v20.0/${META_PHONE_NUMBER_ID}/messages`, {
+  const res = await fetch(`https://graph.facebook.com/v20.0/${META_PHONE_NUMBER_ID}/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -600,6 +625,13 @@ async function sendWhatsAppMessage(to: string, text: string) {
       text: { body: text },
     }),
   });
+
+  if (!res.ok) {
+    const errBody = await res.text();
+    console.error(`sendWhatsAppMessage FAILED (status ${res.status}) for ${to}:`, errBody);
+  }
+
+  return res.ok;
 }
 
 // ---------------------------------------------------------------------------
