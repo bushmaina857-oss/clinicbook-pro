@@ -264,19 +264,10 @@
     </a>
   </nav>
 
+  <script src="session.js"></script>
   <script>
-    var SUPABASE_URL = 'https://iyxumauddvmdfbukrzaa.supabase.co';
-    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5eHVtYXVkZHZtZGZidWtyemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NDk5MTUsImV4cCI6MjA5ODIyNTkxNX0.5B2LHcgRdrRrJbrjKWbK-kqUUlHnws7nxl1fNeZrvHE';
-
-    var session = null;
-    try { session = JSON.parse(localStorage.getItem('clinicbook_pro_session')); } catch(e) {}
-    if (!session || !session.access_token) { window.location.href = 'staff-login.html'; }
-
-    var authHeaders = {
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': 'Bearer ' + session.access_token,
-      'Content-Type': 'application/json'
-    };
+    var session = CB.requireSession();
+    var authHeaders = CB.authHeaders;
 
     var myStaffId = null;
     var myOrgId = null;
@@ -288,55 +279,6 @@
       return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     }
     var today = getLocalDateString();
-
-    function setNavBadge(key, count) {
-      var item = document.querySelector('.bottom-nav [data-nav-key="' + key + '"]');
-      if (!item) return;
-      var existing = item.querySelector('.nav-badge');
-      if (count > 0) {
-        var text = count > 9 ? '9+' : String(count);
-        if (existing) { existing.textContent = text; }
-        else {
-          var badge = document.createElement('span');
-          badge.className = 'nav-badge';
-          badge.textContent = text;
-          item.appendChild(badge);
-        }
-      } else if (existing) {
-        existing.remove();
-      }
-    }
-
-    function fetchFrontDeskBadgeCount(orgId) {
-      return fetch(SUPABASE_URL + '/rest/v1/whatsapp_conversations?org_id=eq.' + orgId + '&escalation_summary=not.is.null&select=patient_phone', {
-        headers: Object.assign({}, authHeaders, { 'Prefer': 'count=exact' })
-      }).then(function(res) {
-        var range = res.headers.get('content-range');
-        if (!range) return 0;
-        var total = parseInt(range.split('/')[1], 10);
-        return isNaN(total) ? 0 : total;
-      }).catch(function() { return 0; });
-    }
-
-    function fetchActivityBadgeCount(orgId, dateStr) {
-      return fetch(SUPABASE_URL + '/rest/v1/rpc/get_daily_activity', {
-        method: 'POST', headers: authHeaders, body: JSON.stringify({ p_org_id: orgId, p_date: dateStr })
-      }).then(safeJson).then(function(rows) {
-        return (rows || []).filter(function(r) { return r.needs_followup; }).length;
-      }).catch(function() { return 0; });
-    }
-
-    function safeJson(res) {
-      return res.text().then(function(t) {
-        var data = null;
-        try { data = t ? JSON.parse(t) : null; } catch(e) { data = t; }
-        if (!res.ok) {
-          var msg = (data && data.message) ? data.message : (typeof data === 'string' ? data : 'Request failed');
-          throw new Error(msg);
-        }
-        return data;
-      });
-    }
 
     function formatTime(t) {
       var parts = t.split(':');
@@ -360,26 +302,26 @@
     document.getElementById('tabSearch').addEventListener('click', function() { switchTab('tabSearch', 'panelSearch'); });
 
     function fetchMyStaff() {
-      return fetch(SUPABASE_URL + '/rest/v1/staff?user_id=eq.' + session.user.id + '&select=id,full_name,role,org_id', {
+      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/staff?user_id=eq.' + session.user.id + '&select=id,full_name,role,org_id', {
         headers: authHeaders
-      }).then(safeJson).then(function(rows) {
+      }).then(CB.safeJson).then(function(rows) {
         if (!rows.length || rows[0].role !== 'receptionist') throw new Error('You do not have receptionist access.');
         return rows[0];
       });
     }
 
     function fetchDoctors(orgId) {
-      return fetch(SUPABASE_URL + '/rest/v1/staff?org_id=eq.' + orgId + '&role=eq.doctor&is_active=eq.true&select=id,full_name,specialty', {
+      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/staff?org_id=eq.' + orgId + '&role=eq.doctor&is_active=eq.true&select=id,full_name,specialty', {
         headers: authHeaders
-      }).then(safeJson);
+      }).then(CB.safeJson);
     }
 
     function fetchTodayAppointments(orgId) {
-      return fetch(SUPABASE_URL + '/rest/v1/appointments?org_id=eq.' + orgId +
+      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/appointments?org_id=eq.' + orgId +
         '&select=id,patient_name,patient_phone,status,queue_number,staff_id,schedules(slot_date,start_time,end_time),staff!appointments_staff_id_fkey(full_name,specialty)'  +
         '&schedules.slot_date=eq.' + today,
         { headers: authHeaders }
-      ).then(safeJson).then(function(rows) {
+      ).then(CB.safeJson).then(function(rows) {
         return rows.filter(function(r) { return r.schedules && r.schedules.slot_date === today; });
       });
     }
@@ -387,11 +329,12 @@
     function updateStatus(appointmentId, newStatus, btnGroup) {
       var btns = btnGroup.querySelectorAll('.action-btn');
       btns.forEach(function(b) { b.disabled = true; });
-      fetch(SUPABASE_URL + '/rest/v1/appointments?id=eq.' + appointmentId, {
+      CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/appointments?id=eq.' + appointmentId, {
         method: 'PATCH', headers: authHeaders, body: JSON.stringify({ status: newStatus })
-      }).then(safeJson).then(function() {
+      }).then(CB.safeJson).then(function() {
         loadToday();
       }).catch(function(err) {
+        if (err.message === 'SESSION_EXPIRED') return;
         alert('Could not update: ' + err.message);
         btns.forEach(function(b) { b.disabled = false; });
       });
@@ -499,6 +442,7 @@
 
     function loadToday() {
       fetchTodayAppointments(myOrgId).then(renderToday).catch(function(err) {
+        if (err.message === 'SESSION_EXPIRED') return;
         showErrorBox(err.message);
       });
     }
@@ -516,9 +460,9 @@
     }
 
     function fetchDoctorSlots(staffId) {
-      return fetch(SUPABASE_URL + '/rest/v1/schedules?staff_id=eq.' + staffId + '&slot_date=gte.' + today + '&is_cancelled=eq.false&select=id,slot_date,start_time,end_time,max_capacity,booked_count&order=slot_date.asc,start_time.asc', {
+      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/schedules?staff_id=eq.' + staffId + '&slot_date=gte.' + today + '&is_cancelled=eq.false&select=id,slot_date,start_time,end_time,max_capacity,booked_count&order=slot_date.asc,start_time.asc', {
         headers: authHeaders
-      }).then(safeJson);
+      }).then(CB.safeJson);
     }
 
     document.getElementById('doctorSelect').addEventListener('change', function() {
@@ -559,6 +503,9 @@
           grid.appendChild(btn);
         });
         picker.appendChild(grid);
+      }).catch(function(err) {
+        if (err.message === 'SESSION_EXPIRED') return;
+        picker.innerHTML = '<div class="empty"><p>Could not load slots: ' + err.message + '</p></div>';
       });
     });
 
@@ -581,14 +528,14 @@
 
       btn.disabled = true; btn.textContent = 'Booking...';
 
-      fetch(SUPABASE_URL + '/rest/v1/appointments', {
+      CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/appointments', {
         method: 'POST', headers: authHeaders,
         body: JSON.stringify({
           schedule_id: selectedSlot.id, staff_id: doctorId, org_id: myOrgId,
           booked_by_staff_id: myStaffId, patient_name: name, patient_phone: phone,
           patient_reason: reason || null, status: 'confirmed', source: 'receptionist'
         })
-      }).then(safeJson).then(function() {
+      }).then(CB.safeJson).then(function() {
         showBookSuccess('Appointment booked for ' + name + '.');
         document.getElementById('bookPatientName').value = '';
         document.getElementById('bookPatientPhone').value = '';
@@ -598,6 +545,7 @@
         selectedSlot = null;
         loadToday();
       }).catch(function(err) {
+        if (err.message === 'SESSION_EXPIRED') return;
         showBookError('Booking failed: ' + err.message);
       }).finally(function() {
         btn.disabled = false;
@@ -624,11 +572,11 @@
 
       container.innerHTML = '<div class="skel" style="height:60px;border-radius:12px;"></div>';
 
-      fetch(SUPABASE_URL + '/rest/v1/appointments?patient_phone=eq.' + encodeURIComponent(phone) + '&org_id=eq.' + myOrgId +
+      CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/appointments?patient_phone=eq.' + encodeURIComponent(phone) + '&org_id=eq.' + myOrgId +
         '&select=id,patient_name,patient_reason,status,queue_number,schedules(slot_date,start_time,end_time),staff!appointments_staff_id_fkey(full_name,specialty)'  +
         '&order=created_at.desc',
         { headers: authHeaders }
-      ).then(safeJson).then(function(appts) {
+      ).then(CB.safeJson).then(function(appts) {
         container.innerHTML = '';
         if (!appts.length) {
           container.innerHTML = '<div class="empty"><p>No appointments found for this number.</p></div>';
@@ -661,44 +609,41 @@
           container.appendChild(card);
         });
       }).catch(function(err) {
+        if (err.message === 'SESSION_EXPIRED') return;
         container.innerHTML = '<div class="empty"><p>Search failed: ' + err.message + '</p></div>';
       });
     }
     document.getElementById('patientSearchBtn').addEventListener('click', searchPatient);
     document.getElementById('patientSearchInput').addEventListener('keydown', function(e) { if (e.key === 'Enter') searchPatient(); });
 
-    document.getElementById('logoutBtn').addEventListener('click', function() {
-      localStorage.removeItem('clinicbook_pro_session');
-      window.location.href = 'staff-login.html';
-    });
+    document.getElementById('logoutBtn').addEventListener('click', function() { CB.logout(); });
 
     function showErrorBox(msg) {
       var el = document.getElementById('errorBox');
       el.textContent = msg; el.style.display = 'block';
     }
 
-    fetchMyStaff().then(function(staff) {
-      myStaffId = staff.id;
-      myOrgId = staff.org_id;
-      document.getElementById('welcomeName').textContent = 'Welcome, ' + staff.full_name;
-      document.getElementById('welcomeSub').textContent = 'Receptionist';
+    if (session) {
+      fetchMyStaff().then(function(staff) {
+        myStaffId = staff.id;
+        myOrgId = staff.org_id;
+        document.getElementById('welcomeName').textContent = 'Welcome, ' + staff.full_name;
+        document.getElementById('welcomeSub').textContent = 'Receptionist';
 
-      return fetchDoctors(myOrgId);
-    }).then(function(doctors) {
-      allDoctors = doctors;
-      populateDoctorSelect(doctors);
-      loadToday();
-      fetchFrontDeskBadgeCount(myOrgId).then(function(count) { setNavBadge('frontdesk', count); });
-      fetchActivityBadgeCount(myOrgId, today).then(function(count) { setNavBadge('activity', count); });
-    }).catch(function(err) {
-      if (err.message.indexOf('JWT') !== -1 || err.message.indexOf('token') !== -1) {
-        localStorage.removeItem('clinicbook_pro_session');
-        window.location.href = 'staff-login.html';
-      } else {
-        showErrorBox(err.message);
-      }
-      console.error(err);
-    });
+        return fetchDoctors(myOrgId);
+      }).then(function(doctors) {
+        allDoctors = doctors;
+        populateDoctorSelect(doctors);
+        loadToday();
+        CB.fetchFrontDeskBadgeCount(myOrgId).then(function(count) { CB.setNavBadge('frontdesk', count); });
+        CB.fetchActivityBadgeCount(myOrgId, today).then(function(count) { CB.setNavBadge('activity', count); });
+      }).catch(function(err) {
+        if (err.message !== 'SESSION_EXPIRED') {
+          showErrorBox(err.message);
+          console.error(err);
+        }
+      });
+    }
   </script>
 </body>
 </html>
