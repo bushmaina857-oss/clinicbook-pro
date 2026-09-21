@@ -244,19 +244,10 @@
     </a>
   </nav>
 
+  <script src="session.js"></script>
   <script>
-    var SUPABASE_URL = 'https://iyxumauddvmdfbukrzaa.supabase.co';
-    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5eHVtYXVkZHZtZGZidWtyemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NDk5MTUsImV4cCI6MjA5ODIyNTkxNX0.5B2LHcgRdrRrJbrjKWbK-kqUUlHnws7nxl1fNeZrvHE';
-
-    var session = null;
-    try { session = JSON.parse(localStorage.getItem('clinicbook_pro_session')); } catch(e) {}
-    if (!session || !session.access_token) { window.location.href = 'staff-login.html'; }
-
-    var authHeaders = {
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': 'Bearer ' + session.access_token,
-      'Content-Type': 'application/json'
-    };
+    var session = CB.requireSession();
+    var authHeaders = CB.authHeaders;
 
     var myOrgId = null;
     var myStaffId = null;
@@ -267,55 +258,6 @@
       return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     }
     var today = getLocalDateString();
-
-    function setNavBadge(key, count) {
-      var item = document.querySelector('.bottom-nav [data-nav-key="' + key + '"]');
-      if (!item) return;
-      var existing = item.querySelector('.nav-badge');
-      if (count > 0) {
-        var text = count > 9 ? '9+' : String(count);
-        if (existing) { existing.textContent = text; }
-        else {
-          var badge = document.createElement('span');
-          badge.className = 'nav-badge';
-          badge.textContent = text;
-          item.appendChild(badge);
-        }
-      } else if (existing) {
-        existing.remove();
-      }
-    }
-
-    function fetchFrontDeskBadgeCount(orgId) {
-      return fetch(SUPABASE_URL + '/rest/v1/whatsapp_conversations?org_id=eq.' + orgId + '&escalation_summary=not.is.null&select=patient_phone', {
-        headers: Object.assign({}, authHeaders, { 'Prefer': 'count=exact' })
-      }).then(function(res) {
-        var range = res.headers.get('content-range');
-        if (!range) return 0;
-        var total = parseInt(range.split('/')[1], 10);
-        return isNaN(total) ? 0 : total;
-      }).catch(function() { return 0; });
-    }
-
-    function fetchActivityBadgeCount(orgId, dateStr) {
-      return fetch(SUPABASE_URL + '/rest/v1/rpc/get_daily_activity', {
-        method: 'POST', headers: authHeaders, body: JSON.stringify({ p_org_id: orgId, p_date: dateStr })
-      }).then(safeJson).then(function(rows) {
-        return (rows || []).filter(function(r) { return r.needs_followup; }).length;
-      }).catch(function() { return 0; });
-    }
-
-    function safeJson(res) {
-      return res.text().then(function(t) {
-        var data = null;
-        try { data = t ? JSON.parse(t) : null; } catch(e) { data = t; }
-        if (!res.ok) {
-          var msg = (data && data.message) ? data.message : (typeof data === 'string' ? data : 'Request failed');
-          throw new Error(msg);
-        }
-        return data;
-      });
-    }
 
     function getInitials(name) {
       return (name || '').split(' ').filter(Boolean).slice(0, 2).map(function(n) { return n[0]; }).join('').toUpperCase();
@@ -335,9 +277,9 @@
     }
 
     function fetchMyStaff() {
-      return fetch(SUPABASE_URL + '/rest/v1/staff?user_id=eq.' + session.user.id + '&select=id,full_name,role,org_id', {
+      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/staff?user_id=eq.' + session.user.id + '&select=id,full_name,role,org_id', {
         headers: authHeaders
-      }).then(safeJson).then(function(rows) {
+      }).then(CB.safeJson).then(function(rows) {
         if (!rows.length || rows[0].role !== 'admin') {
           throw new Error('You do not have admin access.');
         }
@@ -346,27 +288,27 @@
     }
 
     function fetchOrg(orgId) {
-      return fetch(SUPABASE_URL + '/rest/v1/organizations?id=eq.' + orgId + '&select=id,name,type', {
+      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/organizations?id=eq.' + orgId + '&select=id,name,type', {
         headers: authHeaders
-      }).then(safeJson).then(function(rows) { return rows[0]; });
+      }).then(CB.safeJson).then(function(rows) { return rows[0]; });
     }
 
     function fetchJoinRequests(orgId) {
-      return fetch(SUPABASE_URL + '/rest/v1/join_requests?org_id=eq.' + orgId + '&status=eq.pending&select=id,user_id,full_name,specialty,phone,created_at&order=created_at.asc', {
+      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/join_requests?org_id=eq.' + orgId + '&status=eq.pending&select=id,user_id,full_name,specialty,phone,created_at&order=created_at.asc', {
         headers: authHeaders
-      }).then(safeJson);
+      }).then(CB.safeJson);
     }
 
     function fetchDepartments(orgId) {
-      return fetch(SUPABASE_URL + '/rest/v1/departments?org_id=eq.' + orgId + '&select=id,name&order=name.asc', {
+      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/departments?org_id=eq.' + orgId + '&select=id,name&order=name.asc', {
         headers: authHeaders
-      }).then(safeJson);
+      }).then(CB.safeJson);
     }
 
     function fetchAllStaff(orgId) {
-      return fetch(SUPABASE_URL + '/rest/v1/staff?org_id=eq.' + orgId + '&select=id,full_name,role,specialty,phone,is_active,department_id&order=role.asc', {
+      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/staff?org_id=eq.' + orgId + '&select=id,full_name,role,specialty,phone,is_active,department_id&order=role.asc', {
         headers: authHeaders
-      }).then(safeJson);
+      }).then(CB.safeJson);
     }
 
     function renderRequests(requests, departments) {
@@ -465,16 +407,17 @@
         is_active: true
       };
 
-      fetch(SUPABASE_URL + '/rest/v1/staff', {
+      CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/staff', {
         method: 'POST', headers: authHeaders, body: JSON.stringify(staffBody)
-      }).then(safeJson).then(function() {
-        return fetch(SUPABASE_URL + '/rest/v1/join_requests?id=eq.' + req.id, {
+      }).then(CB.safeJson).then(function() {
+        return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/join_requests?id=eq.' + req.id, {
           method: 'PATCH', headers: authHeaders, body: JSON.stringify({ status: 'approved' })
-        }).then(safeJson);
+        }).then(CB.safeJson);
       }).then(function() {
         showToast(req.full_name + ' approved and added as a doctor.');
         loadAll();
       }).catch(function(err) {
+        if (err.message === 'SESSION_EXPIRED') return;
         showErrorBox('Could not approve: ' + err.message);
         btns.forEach(function(b) { b.disabled = false; });
       });
@@ -484,12 +427,13 @@
       var btns = card.querySelectorAll('.req-btn');
       btns.forEach(function(b) { b.disabled = true; });
 
-      fetch(SUPABASE_URL + '/rest/v1/join_requests?id=eq.' + req.id, {
+      CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/join_requests?id=eq.' + req.id, {
         method: 'PATCH', headers: authHeaders, body: JSON.stringify({ status: 'rejected' })
-      }).then(safeJson).then(function() {
+      }).then(CB.safeJson).then(function() {
         showToast(req.full_name + '\'s request was rejected.');
         loadAll();
       }).catch(function(err) {
+        if (err.message === 'SESSION_EXPIRED') return;
         showErrorBox('Could not reject: ' + err.message);
         btns.forEach(function(b) { b.disabled = false; });
       });
@@ -521,14 +465,15 @@
       var btn = document.getElementById('addDeptBtn');
       btn.disabled = true;
 
-      fetch(SUPABASE_URL + '/rest/v1/departments', {
+      CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/departments', {
         method: 'POST', headers: authHeaders,
         body: JSON.stringify({ org_id: myOrgId, name: name })
-      }).then(safeJson).then(function() {
+      }).then(CB.safeJson).then(function() {
         input.value = '';
         showToast('Department "' + name + '" added.');
         loadAll();
       }).catch(function(err) {
+        if (err.message === 'SESSION_EXPIRED') return;
         showErrorBox('Could not add department: ' + err.message);
       }).finally(function() {
         btn.disabled = false;
@@ -687,12 +632,13 @@
       btns.forEach(function(b) { b.disabled = true; });
       errBox.style.display = 'none';
 
-      fetch(SUPABASE_URL + '/rest/v1/staff?id=eq.' + staffId, {
+      CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/staff?id=eq.' + staffId, {
         method: 'PATCH', headers: authHeaders, body: JSON.stringify(updates)
-      }).then(safeJson).then(function() {
+      }).then(CB.safeJson).then(function() {
         showToast('Staff member updated.');
         loadAll();
       }).catch(function(err) {
+        if (err.message === 'SESSION_EXPIRED') return;
         errBox.textContent = err.message;
         errBox.style.display = 'block';
         btns.forEach(function(b) { b.disabled = false; });
@@ -710,36 +656,33 @@
         renderDepartments(departments);
         renderStaff(staffList, departments);
       }).catch(function(err) {
+        if (err.message === 'SESSION_EXPIRED') return;
         showErrorBox(err.message);
         console.error(err);
       });
     }
 
-    document.getElementById('logoutBtn').addEventListener('click', function() {
-      localStorage.removeItem('clinicbook_pro_session');
-      window.location.href = 'staff-login.html';
-    });
+    document.getElementById('logoutBtn').addEventListener('click', function() { CB.logout(); });
 
-    fetchMyStaff().then(function(staff) {
-      myOrgId = staff.org_id;
-      myStaffId = staff.id;
-      document.getElementById('welcomeName').textContent = 'Welcome, ' + staff.full_name;
-      return fetchOrg(myOrgId);
-    }).then(function(org) {
-      myOrgName = org.name;
-      document.getElementById('welcomeSub').textContent = org.name + ' \u2014 ' + org.type;
-      loadAll();
-      fetchFrontDeskBadgeCount(myOrgId).then(function(count) { setNavBadge('frontdesk', count); });
-      fetchActivityBadgeCount(myOrgId, today).then(function(count) { setNavBadge('activity', count); });
-    }).catch(function(err) {
-      if (err.message.indexOf('JWT') !== -1 || err.message.indexOf('token') !== -1) {
-        localStorage.removeItem('clinicbook_pro_session');
-        window.location.href = 'staff-login.html';
-      } else {
-        showErrorBox(err.message);
-      }
-      console.error(err);
-    });
+    if (session) {
+      fetchMyStaff().then(function(staff) {
+        myOrgId = staff.org_id;
+        myStaffId = staff.id;
+        document.getElementById('welcomeName').textContent = 'Welcome, ' + staff.full_name;
+        return fetchOrg(myOrgId);
+      }).then(function(org) {
+        myOrgName = org.name;
+        document.getElementById('welcomeSub').textContent = org.name + ' \u2014 ' + org.type;
+        loadAll();
+        CB.fetchFrontDeskBadgeCount(myOrgId).then(function(count) { CB.setNavBadge('frontdesk', count); });
+        CB.fetchActivityBadgeCount(myOrgId, today).then(function(count) { CB.setNavBadge('activity', count); });
+      }).catch(function(err) {
+        if (err.message !== 'SESSION_EXPIRED') {
+          showErrorBox(err.message);
+          console.error(err);
+        }
+      });
+    }
   </script>
 </body>
 </html>
