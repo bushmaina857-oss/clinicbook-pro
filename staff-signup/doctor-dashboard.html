@@ -288,19 +288,10 @@
     </a>
   </nav>
 
+  <script src="session.js"></script>
   <script>
-    var SUPABASE_URL = 'https://iyxumauddvmdfbukrzaa.supabase.co';
-    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml5eHVtYXVkZHZtZGZidWtyemFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2NDk5MTUsImV4cCI6MjA5ODIyNTkxNX0.5B2LHcgRdrRrJbrjKWbK-kqUUlHnws7nxl1fNeZrvHE';
-
-    var session = null;
-    try { session = JSON.parse(localStorage.getItem('clinicbook_pro_session')); } catch(e) {}
-    if (!session || !session.access_token) { window.location.href = 'staff-login.html'; }
-
-    var authHeaders = {
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': 'Bearer ' + session.access_token,
-      'Content-Type': 'application/json'
-    };
+    var session = CB.requireSession();
+    var authHeaders = CB.authHeaders;
 
     var myStaffId = null;
     var allAppointments = [];
@@ -313,18 +304,6 @@
       return year + '-' + month + '-' + day;
     }
     var today = getLocalDateString();
-
-    function safeJson(res) {
-      return res.text().then(function(t) {
-        var data = null;
-        try { data = t ? JSON.parse(t) : null; } catch(e) { data = t; }
-        if (!res.ok) {
-          var msg = (data && data.message) ? data.message : (typeof data === 'string' ? data : 'Request failed');
-          throw new Error(msg);
-        }
-        return data;
-      });
-    }
 
     function formatTime(t) {
       var parts = t.split(':');
@@ -355,9 +334,9 @@
 
     // ---------- FETCH MY STAFF RECORD ----------
     function fetchMyStaff() {
-      return fetch(SUPABASE_URL + '/rest/v1/staff?user_id=eq.' + session.user.id + '&select=id,full_name,role,specialty,org_id', {
+      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/staff?user_id=eq.' + session.user.id + '&select=id,full_name,role,specialty,org_id', {
         headers: authHeaders
-      }).then(safeJson).then(function(rows) {
+      }).then(CB.safeJson).then(function(rows) {
         if (!rows.length || rows[0].role !== 'doctor') {
           throw new Error('You do not have doctor access.');
         }
@@ -369,9 +348,9 @@
     // when this doctor's org has no active receptionist on staff.
     // ----------
     function checkIfSoloDoctor(orgId) {
-      return fetch(SUPABASE_URL + '/rest/v1/staff?org_id=eq.' + orgId + '&role=eq.receptionist&is_active=eq.true&select=id&limit=1', {
+      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/staff?org_id=eq.' + orgId + '&role=eq.receptionist&is_active=eq.true&select=id&limit=1', {
         headers: authHeaders
-      }).then(safeJson).then(function(rows) {
+      }).then(CB.safeJson).then(function(rows) {
         if (!rows || rows.length === 0) {
           document.getElementById('frontDeskNavItem').style.display = 'flex';
         }
@@ -380,11 +359,11 @@
 
     // ---------- APPOINTMENTS / QUEUE ----------
     function fetchAppointments() {
-      return fetch(SUPABASE_URL + '/rest/v1/appointments?staff_id=eq.' + myStaffId +
+      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/appointments?staff_id=eq.' + myStaffId +
         '&select=id,patient_name,patient_phone,patient_reason,status,queue_number,is_seen,schedule_id,schedules(slot_date,start_time,end_time)' +
         '&order=schedule_id.asc,queue_number.asc',
         { headers: authHeaders }
-      ).then(safeJson);
+      ).then(CB.safeJson);
     }
 
     function updateStats() {
@@ -398,13 +377,14 @@
       var btns = card.querySelectorAll('.action-btn');
       btns.forEach(function(b) { b.disabled = true; });
 
-      fetch(SUPABASE_URL + '/rest/v1/appointments?id=eq.' + appointmentId, {
+      CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/appointments?id=eq.' + appointmentId, {
         method: 'PATCH', headers: authHeaders, body: JSON.stringify({ status: newStatus })
-      }).then(safeJson).then(function() {
+      }).then(CB.safeJson).then(function() {
         allAppointments.forEach(function(a) { if (a.id === appointmentId) a.status = newStatus; });
         updateStats();
         renderAppointments();
       }).catch(function(err) {
+        if (err.message === 'SESSION_EXPIRED') return;
         alert('Could not update appointment: ' + err.message);
         btns.forEach(function(b) { b.disabled = false; });
       });
@@ -414,12 +394,13 @@
       var btns = card.querySelectorAll('.action-btn');
       btns.forEach(function(b) { b.disabled = true; });
 
-      fetch(SUPABASE_URL + '/rest/v1/appointments?id=eq.' + appointmentId, {
+      CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/appointments?id=eq.' + appointmentId, {
         method: 'PATCH', headers: authHeaders, body: JSON.stringify({ is_seen: true })
-      }).then(safeJson).then(function() {
+      }).then(CB.safeJson).then(function() {
         allAppointments.forEach(function(a) { if (a.id === appointmentId) a.is_seen = true; });
         renderAppointments();
       }).catch(function(err) {
+        if (err.message === 'SESSION_EXPIRED') return;
         alert('Could not update: ' + err.message);
         btns.forEach(function(b) { b.disabled = false; });
       });
@@ -566,12 +547,12 @@
     document.getElementById('slotDate').value = today;
 
     function fetchSchedules() {
-      return fetch(SUPABASE_URL + '/rest/v1/schedules?staff_id=eq.' + myStaffId +
+      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/schedules?staff_id=eq.' + myStaffId +
         '&slot_date=gte.' + today +
         '&select=id,slot_date,start_time,end_time,max_capacity,booked_count,is_cancelled' +
         '&order=slot_date.asc,start_time.asc',
         { headers: authHeaders }
-      ).then(safeJson);
+      ).then(CB.safeJson);
     }
 
     function showSuccessToast(msg) {
@@ -664,13 +645,14 @@
 
     function cancelSlot(slotId, btn, row) {
       btn.disabled = true; btn.textContent = '...';
-      fetch(SUPABASE_URL + '/rest/v1/schedules?id=eq.' + slotId, {
+      CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/schedules?id=eq.' + slotId, {
         method: 'PATCH', headers: authHeaders, body: JSON.stringify({ is_cancelled: true })
-      }).then(safeJson).then(function() {
+      }).then(CB.safeJson).then(function() {
         return fetchSchedules();
       }).then(function(schedules) {
         renderSchedules(schedules);
       }).catch(function(err) {
+        if (err.message === 'SESSION_EXPIRED') return;
         alert('Could not cancel slot: ' + err.message);
         btn.disabled = false; btn.textContent = 'Cancel';
       });
@@ -692,15 +674,15 @@ document.getElementById('addSlotBtn').addEventListener('click', function() {
 
   var insertHeaders = Object.assign({}, authHeaders, { 'Prefer': 'return=representation' });
 
-  fetch(SUPABASE_URL + '/rest/v1/schedules', {
+  CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/schedules', {
     method: 'POST', headers: insertHeaders,
     body: JSON.stringify({ staff_id: myStaffId, slot_date: date, start_time: start, end_time: end, max_capacity: capacity, booked_count: 0, is_cancelled: false })
-  }).then(safeJson).then(function(rows) {
+  }).then(CB.safeJson).then(function(rows) {
     var newSlot = rows && rows[0];
     if (newSlot && newSlot.id) {
       // Fire-and-forget: check the waitlist for this doctor/date. A failure
       // here should never block the doctor from seeing their slot was added.
-      fetch(SUPABASE_URL + '/functions/v1/notify-waitlist-on-new-slot', {
+      CB.authedFetch(CB.SUPABASE_URL + '/functions/v1/notify-waitlist-on-new-slot', {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({ schedule_id: newSlot.id })
@@ -715,15 +697,13 @@ document.getElementById('addSlotBtn').addEventListener('click', function() {
     renderSchedules(schedules);
     btn.disabled = false; btn.textContent = 'Add Slot';
   }).catch(function(err) {
+    if (err.message === 'SESSION_EXPIRED') return;
     showErrorToast('Error: ' + err.message);
     btn.disabled = false; btn.textContent = 'Add Slot';
   });
 });
 
-    document.getElementById('logoutBtn').addEventListener('click', function() {
-      localStorage.removeItem('clinicbook_pro_session');
-      window.location.href = 'staff-login.html';
-    });
+    document.getElementById('logoutBtn').addEventListener('click', function() { CB.logout(); });
 
     function showErrorBox(msg) {
       var el = document.getElementById('errorBox');
@@ -731,28 +711,27 @@ document.getElementById('addSlotBtn').addEventListener('click', function() {
     }
 
     // ---------- INIT ----------
-    fetchMyStaff().then(function(staff) {
-      myStaffId = staff.id;
-      document.getElementById('welcomeName').textContent = 'Welcome, ' + staff.full_name;
-      document.getElementById('welcomeSub').textContent = staff.specialty || 'Doctor';
+    if (session) {
+      fetchMyStaff().then(function(staff) {
+        myStaffId = staff.id;
+        document.getElementById('welcomeName').textContent = 'Welcome, ' + staff.full_name;
+        document.getElementById('welcomeSub').textContent = staff.specialty || 'Doctor';
 
-      checkIfSoloDoctor(staff.org_id);
+        checkIfSoloDoctor(staff.org_id);
 
-      return Promise.all([fetchAppointments(), fetchSchedules()]);
-    }).then(function(results) {
-      allAppointments = results[0];
-      updateStats();
-      renderAppointments();
-      renderSchedules(results[1]);
-    }).catch(function(err) {
-      if (err.message.indexOf('JWT') !== -1 || err.message.indexOf('token') !== -1) {
-        localStorage.removeItem('clinicbook_pro_session');
-        window.location.href = 'staff-login.html';
-      } else {
-        showErrorBox(err.message);
-      }
-      console.error(err);
-    });
+        return Promise.all([fetchAppointments(), fetchSchedules()]);
+      }).then(function(results) {
+        allAppointments = results[0];
+        updateStats();
+        renderAppointments();
+        renderSchedules(results[1]);
+      }).catch(function(err) {
+        if (err.message !== 'SESSION_EXPIRED') {
+          showErrorBox(err.message);
+          console.error(err);
+        }
+      });
+    }
   </script>
 </body>
 </html>
