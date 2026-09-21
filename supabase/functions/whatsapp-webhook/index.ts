@@ -558,7 +558,16 @@ async function executeTool(name: string, input: any, orgId: string, patientPhone
 // Claude call with tool loop
 // ---------------------------------------------------------------------------
 async function runClaude(messages: any[], orgId: string, patientPhone: string) {
-  let convo = [...messages];
+  // Stored conversation history carries UI-only fields (sent_by, staff_id)
+  // that front-desk.html needs to label "Staff" vs "AI" bubbles — but
+  // Anthropic's API rejects any message with fields beyond role/content
+  // ("Extra inputs are not permitted"). Once a staff reply was saved into
+  // whatsapp_conversations.messages, every future AI call for that patient
+  // failed this way — which looked like the AI had gone silent, since the
+  // 400 happened on the very first turn, before any reply could be sent.
+  // Strip to {role, content} here, on the way OUT to Claude only; the
+  // stored/DB copy (and what's shown in front-desk.html) is untouched.
+  let convo = messages.map((m) => ({ role: m.role, content: m.content }));
   const todayStr = getTodayStr();
 
   for (let turn = 0; turn < 5; turn++) {
