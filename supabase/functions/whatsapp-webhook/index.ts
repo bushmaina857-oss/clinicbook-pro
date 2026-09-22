@@ -1,7 +1,7 @@
 // supabase/functions/whatsapp-webhook/index.ts
 //
-// ClinicBook Pro — WhatsApp AI Receptionist (v4.5)
-// Base: v4.3 (Nairobi-timezone getTodayStr fix) — unchanged elsewhere.
+// ClinicBook Pro — WhatsApp AI Receptionist (v4.7)
+// Base: v4.6 (send-failure logging) — unchanged elsewhere except as noted.
 //
 // v4.4: book_appointment and join_waitlist were storing
 // input.patient_phone — a value Claude fills in from the CONVERSATION
@@ -40,6 +40,40 @@
 // log. Fix: both now check res.ok and console.error the parsed response
 // body on failure, so a rejected send is actually visible going forward.
 //
+// v4.7: multi-tenant, multi-number bug. sendWhatsAppMessage and
+// sendWaitlistTemplate both sent OUTBOUND messages via one hardcoded
+// global secret, META_PHONE_NUMBER_ID — completely ignoring which
+// number the patient actually messaged. This was invisible with a
+// single clinic number in use, but breaks the moment a second org/
+// number goes live: inbound routing already correctly identifies the
+// org by the phone_number_id Meta reports in the payload, but every
+// reply would still go out via whichever number happened to be in that
+// one global secret, regardless of which org the conversation belongs
+// to — wrong sender for one of the two clinics, every time.
+// Fix: both send functions now take the phone_number_id as a parameter
+// instead of reading the global env var. The value used is
+// `metaPhoneNumberId` — read directly off each incoming webhook payload
+// (`change.value.metadata.phone_number_id`), the same field already used
+// to look up the org — so a reply always goes out via the exact number
+// the patient messaged, with zero dependency on env config. This is
+// threaded through executeTool and offerSlotToWaitlist as well, since
+// cancel_appointment can trigger a waitlist-offer send internally.
+// META_PHONE_NUMBER_ID env var is no longer used and can be removed from
+// secrets once you've confirmed this deploy works — it's left declared
+// below (unused) rather than deleted, in case anything else references it.
+//
+// ASSUMPTION TO CONFIRM: this assumes a single META_ACCESS_TOKEN works
+// for sending on behalf of BOTH phone numbers — true if both numbers'
+// WhatsApp Business Accounts are owned by (or shared as an asset with)
+// the same Meta app / System User that issued this token. If Hospital
+// B's number lives under a completely separate Business Manager with no
+// shared access grant, sends to/from it will fail with a permissions
+// error even after this fix, and you'd need a second access token stored
+// per-org (e.g. a meta_access_token column on organizations) rather than
+// one global secret. Deploy this first and check the logs — if sends to
+// the new number fail with an auth/permission error specifically, that's
+// the tell this assumption doesn't hold.
+//
 // NOTE: this changes the key format used for whatsapp_conversations
 // going forward. Any existing conversation row still keyed under the old
 // raw (no "+") phone format will not be found on that patient's next
@@ -74,6 +108,8 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const META_VERIFY_TOKEN = Deno.env.get("META_VERIFY_TOKEN")!;
 const META_ACCESS_TOKEN = Deno.env.get("META_ACCESS_TOKEN")!;
+// No longer used for sending as of v4.7 — see note above. Left declared
+// only in case something else in this project still reads it.
 const META_PHONE_NUMBER_ID = Deno.env.get("META_PHONE_NUMBER_ID")!;
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
 
@@ -270,9 +306,13 @@ async function logToolCall(orgId: string, patientPhone: string, toolName: string
 // Send an approved WhatsApp template — used for any message that may go out
 // outside the patient's 24h free-form session window (waitlist offers,
 // reminders). Free-form text is silently dropped by Meta outside that window.
+//
+// v4.7: phoneNumberId is now a required parameter — the send goes out via
+// this exact number instead of a single global one, so each org's patients
+// are always messaged from that org's own WhatsApp number.
 // ---------------------------------------------------------------------------
-async function sendWaitlistTemplate(to: string, doctorName: string, slotDate: string) {
-  const res = await fetch(`https://graph.facebook.com/v20.0/${META_PHONE_NUMBER_ID}/messages`, {
+async function sendWaitlistTemplate(to: string, doctorName: string, slotDate: string, phoneNumberId: string) {
+  const res = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -301,7 +341,7 @@ async function sendWaitlistTemplate(to: string, doctorName: string, slotDate: st
   if (!res.ok) {
     const errBody = await res.text();
     console.error(
-      `sendWaitlistTemplate FAILED (status ${res.status}) for ${normalizePhone(to)}:`,
+      `sendWaitlistTemplate FAILED (status ${res.status}) for ${normalizePhone(to)} via ${phoneNumberId}:`,
       errBody
     );
   }
@@ -311,8 +351,11 @@ async function sendWaitlistTemplate(to: string, doctorName: string, slotDate: st
 
 // ---------------------------------------------------------------------------
 // Cancellation recovery — offer freed slot to next matching waitlist entry
+//
+// v4.7: phoneNumberId threaded through so the offer template is sent from
+// the correct org's number, not a hardcoded global one.
 // ---------------------------------------------------------------------------
-async function offerSlotToWaitlist(orgId: string, staffId: string, scheduleId: string, slotDate: string) {
+async function offerSlotToWaitlist(orgId: string, staffId: string, scheduleId: string, slotDate: string, phoneNumberId: string) {
   // Find the oldest waiting entry for this doctor, matching this date or "any day"
   const { data: candidates } = await supabase
     .from("waitlist")
@@ -339,15 +382,18 @@ async function offerSlotToWaitlist(orgId: string, staffId: string, scheduleId: s
     .update({ status: "offered", offered_schedule_id: scheduleId, offered_at: new Date().toISOString() })
     .eq("id", candidate.id);
 
-  await sendWaitlistTemplate(candidate.patient_phone, doctor?.full_name || "your doctor", slotDate);
+  await sendWaitlistTemplate(candidate.patient_phone, doctor?.full_name || "your doctor", slotDate, phoneNumberId);
 
   return candidate;
 }
 
 // ---------------------------------------------------------------------------
 // Tool execution
+//
+// v4.7: takes phoneNumberId so cancel_appointment can pass it through to
+// offerSlotToWaitlist when a freed slot triggers an outbound offer.
 // ---------------------------------------------------------------------------
-async function executeTool(name: string, input: any, orgId: string, patientPhone: string) {
+async function executeTool(name: string, input: any, orgId: string, patientPhone: string, phoneNumberId: string) {
   let result: any;
 
   switch (name) {
@@ -479,7 +525,7 @@ async function executeTool(name: string, input: any, orgId: string, patientPhone
       let offeredTo = null;
       const sched = (appt as any).schedules;
       if (sched?.staff_id && sched?.slot_date) {
-        offeredTo = await offerSlotToWaitlist(appt.org_id, sched.staff_id, appt.schedule_id, sched.slot_date);
+        offeredTo = await offerSlotToWaitlist(appt.org_id, sched.staff_id, appt.schedule_id, sched.slot_date, phoneNumberId);
       }
 
       result = { success: true, waitlist_offered: !!offeredTo };
@@ -556,8 +602,10 @@ async function executeTool(name: string, input: any, orgId: string, patientPhone
 
 // ---------------------------------------------------------------------------
 // Claude call with tool loop
+//
+// v4.7: takes phoneNumberId to pass through to executeTool.
 // ---------------------------------------------------------------------------
-async function runClaude(messages: any[], orgId: string, patientPhone: string) {
+async function runClaude(messages: any[], orgId: string, patientPhone: string, phoneNumberId: string) {
   // Stored conversation history carries UI-only fields (sent_by, staff_id)
   // that front-desk.html needs to label "Staff" vs "AI" bubbles — but
   // Anthropic's API rejects any message with fields beyond role/content
@@ -605,7 +653,7 @@ async function runClaude(messages: any[], orgId: string, patientPhone: string) {
 
     const toolResults = [];
     for (const tu of toolUses) {
-      const result = await executeTool(tu.name, tu.input, orgId, patientPhone);
+      const result = await executeTool(tu.name, tu.input, orgId, patientPhone, phoneNumberId);
       toolResults.push({
         type: "tool_result",
         tool_use_id: tu.id,
@@ -620,9 +668,12 @@ async function runClaude(messages: any[], orgId: string, patientPhone: string) {
 
 // ---------------------------------------------------------------------------
 // Send reply via Meta Cloud API
+//
+// v4.7: phoneNumberId is now a required parameter instead of reading the
+// global META_PHONE_NUMBER_ID secret — see version note at top of file.
 // ---------------------------------------------------------------------------
-async function sendWhatsAppMessage(to: string, text: string) {
-  const res = await fetch(`https://graph.facebook.com/v20.0/${META_PHONE_NUMBER_ID}/messages`, {
+async function sendWhatsAppMessage(to: string, text: string, phoneNumberId: string) {
+  const res = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -637,7 +688,7 @@ async function sendWhatsAppMessage(to: string, text: string) {
 
   if (!res.ok) {
     const errBody = await res.text();
-    console.error(`sendWhatsAppMessage FAILED (status ${res.status}) for ${to}:`, errBody);
+    console.error(`sendWhatsAppMessage FAILED (status ${res.status}) for ${to} via ${phoneNumberId}:`, errBody);
   }
 
   return res.ok;
@@ -771,10 +822,13 @@ Deno.serve(async (req) => {
       // the YES/CANCEL lookups. One consistent format everywhere fixes it.
       const from = normalizePhone(message.from);
       const text = message.text?.body;
+      // v4.7: this is now also used for every OUTBOUND send in this
+      // request, guaranteeing replies go out via the exact number the
+      // patient messaged — see version note at top of file.
       const metaPhoneNumberId = change.value.metadata.phone_number_id;
 
       if (!text) {
-        await sendWhatsAppMessage(from, "I can only read text messages right now — could you type your question?");
+        await sendWhatsAppMessage(from, "I can only read text messages right now — could you type your question?", metaPhoneNumberId);
         return new Response("OK", { status: 200 });
       }
 
@@ -799,7 +853,7 @@ Deno.serve(async (req) => {
         const upcoming = await getUpcomingAppointmentsForCancel(org.id, from);
 
         if (upcoming.length === 0) {
-          await sendWhatsAppMessage(from, "I couldn't find an upcoming appointment to cancel for this number.");
+          await sendWhatsAppMessage(from, "I couldn't find an upcoming appointment to cancel for this number.", metaPhoneNumberId);
           return new Response("OK", { status: 200 });
         }
 
@@ -810,7 +864,8 @@ Deno.serve(async (req) => {
 
           await sendWhatsAppMessage(
             from,
-            `You have more than one upcoming appointment. Reply with the number to cancel:\n\n${list}`
+            `You have more than one upcoming appointment. Reply with the number to cancel:\n\n${list}`,
+            metaPhoneNumberId
           );
 
           await supabase.from("pending_cancellations").upsert(
@@ -830,14 +885,16 @@ Deno.serve(async (req) => {
           "cancel_appointment",
           { appointment_id: upcoming[0].appointment_id },
           org.id,
-          from
+          from,
+          metaPhoneNumberId
         );
 
         await sendWhatsAppMessage(
           from,
           result.success
             ? "Your appointment has been cancelled. Let us know if you'd like to rebook."
-            : "Sorry, I couldn't cancel that appointment. Please contact the clinic directly."
+            : "Sorry, I couldn't cancel that appointment. Please contact the clinic directly.",
+          metaPhoneNumberId
         );
 
         return new Response("OK", { status: 200 });
@@ -869,7 +926,8 @@ Deno.serve(async (req) => {
             await supabase.from("waitlist").update({ status: "expired" }).eq("id", offer.id);
             await sendWhatsAppMessage(
               from,
-              "Sorry, that slot offer has expired. Reply with a date and doctor and I can check what's currently available, or I can add you back to the waitlist."
+              "Sorry, that slot offer has expired. Reply with a date and doctor and I can check what's currently available, or I can add you back to the waitlist.",
+              metaPhoneNumberId
             );
             return new Response("OK", { status: 200 });
           }
@@ -885,7 +943,8 @@ Deno.serve(async (req) => {
               patient_name: offer.patient_name,
             },
             org.id,
-            from
+            from,
+            metaPhoneNumberId
           );
 
           if (bookResult.success) {
@@ -903,7 +962,8 @@ Deno.serve(async (req) => {
 
             await sendWhatsAppMessage(
               from,
-              `You're all set — booked with Dr. ${doctorName} on ${slotDate} at ${startTime}. See you then!`
+              `You're all set — booked with Dr. ${doctorName} on ${slotDate} at ${startTime}. See you then!`,
+              metaPhoneNumberId
             );
           } else {
             // Someone else claimed it first (or it's otherwise no longer
@@ -912,7 +972,8 @@ Deno.serve(async (req) => {
             await supabase.from("waitlist").update({ status: "waiting" }).eq("id", offer.id);
             await sendWhatsAppMessage(
               from,
-              "Sorry — that slot was just taken by someone else. I've kept you on the waitlist and will let you know as soon as another one opens up."
+              "Sorry — that slot was just taken by someone else. I've kept you on the waitlist and will let you know as soon as another one opens up.",
+              metaPhoneNumberId
             );
           }
 
@@ -938,7 +999,7 @@ Deno.serve(async (req) => {
           const appointmentIds: string[] = pending.appointment_ids || [];
 
           if (index < 0 || index >= appointmentIds.length) {
-            await sendWhatsAppMessage(from, `Please reply with a number between 1 and ${appointmentIds.length}.`);
+            await sendWhatsAppMessage(from, `Please reply with a number between 1 and ${appointmentIds.length}.`, metaPhoneNumberId);
             return new Response("OK", { status: 200 });
           }
 
@@ -946,7 +1007,8 @@ Deno.serve(async (req) => {
             "cancel_appointment",
             { appointment_id: appointmentIds[index] },
             org.id,
-            from
+            from,
+            metaPhoneNumberId
           );
 
           await supabase.from("pending_cancellations").delete().eq("patient_phone", from).eq("org_id", org.id);
@@ -955,7 +1017,8 @@ Deno.serve(async (req) => {
             from,
             result.success
               ? "That appointment has been cancelled. Let us know if you'd like to rebook."
-              : "Sorry, I couldn't cancel that appointment. Please contact the clinic directly."
+              : "Sorry, I couldn't cancel that appointment. Please contact the clinic directly.",
+            metaPhoneNumberId
           );
 
           return new Response("OK", { status: 200 });
@@ -980,9 +1043,9 @@ Deno.serve(async (req) => {
         return new Response("OK", { status: 200 });
       }
 
-      const reply = await runClaude(messages, org.id, from);
+      const reply = await runClaude(messages, org.id, from, metaPhoneNumberId);
 
-      await sendWhatsAppMessage(from, reply);
+      await sendWhatsAppMessage(from, reply, metaPhoneNumberId);
       await saveConversation(
         from,
         org.id,
