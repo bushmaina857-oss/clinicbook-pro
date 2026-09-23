@@ -183,8 +183,4 @@ Deno.serve(async (req: Request) => {
   }
 
   return jsonResponse({ summary: summaryText });
-<<<<<<< HEAD
 });
-=======
-});
->>>>>>> b6b5055a9d238a1e2fd9eb5489081a04d338a513
