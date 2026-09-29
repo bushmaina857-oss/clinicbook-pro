@@ -11,17 +11,19 @@
     .card { width: 100%; max-width: 380px; background: #fff; border: 1px solid #EEEDE9; border-radius: 20px; padding: 40px 32px; box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 16px 40px rgba(31,29,23,.08); display: flex; flex-direction: column; gap: 20px; }
     .badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 999px; background: #ECFDF5; color: #047857; font-size: 13px; font-weight: 700; text-transform: capitalize; }
     .label { display: block; font-size: 13px; font-weight: 600; color: #44403C; margin-bottom: 6px; }
-    .input { width: 100%; box-sizing: border-box; padding: 12px 14px; border: 1px solid #D6D3CE; border-radius: 10px; font-size: 15px; background: #fff; }
+    .input { width: 100%; padding: 12px 14px; border: 1px solid #D6D3CE; border-radius: 10px; font-size: 15px; background: #fff; }
     .input:focus { outline: none; border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,.12); }
     .input:disabled { background: #F5F4F1; color: #78716C; }
-    .btn-primary { width: 100%; padding: 13px; border-radius: 10px; background: #059669; color: #fff; font-size: 15px; font-weight: 600; border: none; cursor: pointer; box-shadow: 0 2px 8px rgba(5,150,105,.28); }
+    .btn-primary { width: 100%; padding: 13px; border-radius: 10px; background: #059669; color: #fff; font-size: 15px; font-weight: 600; border: none; cursor: pointer; box-shadow: 0 2px 8px rgba(5,150,105,.28); text-align: center; text-decoration: none; display: block; }
     .btn-primary:disabled { background: #A8A29E; cursor: not-allowed; box-shadow: none; }
+    .btn-primary:focus-visible, .eye-btn:focus-visible { outline: 2px solid #059669; outline-offset: 2px; }
     .field-wrap { position: relative; }
     .eye-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 6px; }
     .error-box { background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #991B1B; display: none; }
-    .hidden { display: none; }
     .center { text-align: center; }
     .muted { font-size: 13px; color: #78716C; }
+    .title { font-size: 18px; font-weight: 700; }
+    .stack { display: flex; flex-direction: column; align-items: center; gap: 10px; }
   </style>
 </head>
 <body>
@@ -31,16 +33,14 @@
   </div>
 
   <script>
-    // If session.js already exposes these as plain constants (not gated
-    // behind a signed-in session), delete these two lines and use
-    // CB.SUPABASE_URL / CB.SUPABASE_ANON_KEY instead.
+    // Replace with your project values (or read them from session.js if it exposes them without a session).
     var SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
     var SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
+    var LOGIN_PAGE = 'login.html'; // set to your real sign-in page
 
     var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    var params = new URLSearchParams(window.location.search);
-    var token = params.get('token');
+    var token = new URLSearchParams(window.location.search).get('token');
     var card = document.getElementById('card');
     var invite = null;
 
@@ -48,63 +48,59 @@
       director: 'admin-dashboard.html',
       admin: 'admin-dashboard.html',
       doctor: 'doctor-dashboard.html',
-      receptionist: 'front-desk.html'
+      receptionist: 'receptionist-dashboard.html?welcome=1'
     };
+
+    var EYE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>';
 
     function showError(msg) {
       card.innerHTML =
-        '<div class="center" style="font-size:18px;font-weight:700">This invite link isn\'t valid</div>' +
-        '<div class="error-box" style="display:block">' + msg + '</div>' +
+        '<div class="center title">This invite link isn\'t valid</div>' +
+        '<div class="error-box" id="fatalMsg" style="display:block"></div>' +
         '<div class="center muted">Ask your organization\'s admin to send a new invite.</div>';
+      document.getElementById('fatalMsg').textContent = msg;
     }
 
     function renderStep1() {
       card.innerHTML =
-        '<div class="center" style="display:flex;flex-direction:column;align-items:center;gap:10px">' +
-        '<div style="font-size:18px;font-weight:700">You\'ve been invited</div>' +
-        '<div class="muted">' + invite.org_name + ' has invited you to join as</div>' +
-        '<span class="badge">' + invite.role + '</span>' +
+        '<div class="center stack">' +
+        '<div class="title">You\'ve been invited</div>' +
+        '<div class="muted"><span id="orgName"></span> has invited you to join as</div>' +
+        '<span class="badge" id="roleBadge"></span>' +
         '</div>' +
-        '<div>' +
-        '<label class="label">Email</label>' +
-        '<input class="input" value="' + invite.email + '" disabled>' +
-        '</div>' +
+        '<div><label class="label" for="emailField">Email</label>' +
+        '<input class="input" id="emailField" disabled></div>' +
         '<button class="btn-primary" id="acceptBtn">Accept &amp; continue</button>';
 
+      // Invite fields come from the database: set as text, never as HTML.
+      document.getElementById('orgName').textContent = invite.org_name;
+      document.getElementById('roleBadge').textContent = invite.role;
+      document.getElementById('emailField').value = invite.email;
       document.getElementById('acceptBtn').addEventListener('click', renderStep2);
     }
 
-    function togglePasswordField(inputId, btn) {
-      var input = document.getElementById(inputId);
-      input.type = input.type === 'password' ? 'text' : 'password';
+    function passwordField(id, label) {
+      return '<div><label class="label" for="' + id + '">' + label + '</label>' +
+        '<div class="field-wrap"><input class="input" id="' + id + '" type="password" placeholder="••••••••" autocomplete="new-password" style="padding-right:44px">' +
+        '<button class="eye-btn" type="button" data-for="' + id + '" aria-label="Show or hide password">' + EYE + '</button></div></div>';
     }
 
     function renderStep2() {
       card.innerHTML =
-        '<div class="center" style="font-size:18px;font-weight:700">Set up your account</div>' +
-        '<div>' +
-        '<label class="label" for="fullName">Full name</label>' +
-        '<input class="input" id="fullName" type="text" placeholder="Jane Mwikali">' +
-        '</div>' +
-        '<div>' +
-        '<label class="label" for="p1">Password</label>' +
-        '<div class="field-wrap">' +
-        '<input class="input" id="p1" type="password" placeholder="••••••••" style="padding-right:44px">' +
-        '<button class="eye-btn" type="button" id="toggleP1" aria-label="Show password">' +
-        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>' +
-        '</button></div></div>' +
-        '<div>' +
-        '<label class="label" for="p2">Confirm password</label>' +
-        '<div class="field-wrap">' +
-        '<input class="input" id="p2" type="password" placeholder="••••••••" style="padding-right:44px">' +
-        '<button class="eye-btn" type="button" id="toggleP2" aria-label="Show password">' +
-        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>' +
-        '</button></div></div>' +
-        '<div class="error-box" id="step2Error"></div>' +
+        '<div class="center title">Set up your account</div>' +
+        '<div><label class="label" for="fullName">Full name</label>' +
+        '<input class="input" id="fullName" type="text" placeholder="Jane Mwikali" autocomplete="name"></div>' +
+        passwordField('p1', 'Password') +
+        passwordField('p2', 'Confirm password') +
+        '<div class="error-box" id="step2Error" role="alert"></div>' +
         '<button class="btn-primary" id="createBtn">Create account</button>';
 
-      document.getElementById('toggleP1').addEventListener('click', function() { togglePasswordField('p1'); });
-      document.getElementById('toggleP2').addEventListener('click', function() { togglePasswordField('p2'); });
+      card.querySelectorAll('.eye-btn').forEach(function(b) {
+        b.addEventListener('click', function() {
+          var input = document.getElementById(b.getAttribute('data-for'));
+          input.type = input.type === 'password' ? 'text' : 'password';
+        });
+      });
       document.getElementById('createBtn').addEventListener('click', submitAccount);
     }
 
@@ -115,33 +111,44 @@
       var errBox = document.getElementById('step2Error');
       var btn = document.getElementById('createBtn');
 
+      function fail(msg) { errBox.textContent = msg; errBox.style.display = 'block'; }
       errBox.style.display = 'none';
 
-      if (!fullName) { errBox.textContent = 'Please enter your full name.'; errBox.style.display = 'block'; return; }
-      if (p1.length < 8) { errBox.textContent = 'Password must be at least 8 characters.'; errBox.style.display = 'block'; return; }
-      if (p1 !== p2) { errBox.textContent = 'Passwords don\'t match.'; errBox.style.display = 'block'; return; }
+      if (!fullName) return fail('Please enter your full name.');
+      if (p1.length < 8) return fail('Password must be at least 8 characters.');
+      if (p1 !== p2) return fail('Passwords don\'t match.');
 
       btn.disabled = true;
       btn.textContent = 'Creating account…';
+
+      var accountCreated = false;
+      var role = null;
 
       fetch(SUPABASE_URL + '/functions/v1/accept-invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
         body: JSON.stringify({ token: token, full_name: fullName, password: p1 })
       }).then(function(res) {
-        return res.json().then(function(data) { return { ok: res.ok, data: data }; });
+        return res.json().catch(function() { return {}; }).then(function(data) { return { ok: res.ok, data: data }; });
       }).then(function(result) {
-        if (!result.ok) {
-          throw new Error(result.data.error || 'Something went wrong.');
-        }
-        // Sign in immediately with the password they just set.
-        return sb.auth.signInWithPassword({ email: invite.email, password: p1 }).then(function() {
-          var dest = dashboardByRole[result.data.role] || 'admin-dashboard.html';
-          window.location.href = dest;
-        });
+        if (!result.ok) throw new Error(result.data.error || 'Something went wrong.');
+        accountCreated = true;
+        role = result.data.role || invite.role;
+        return sb.auth.signInWithPassword({ email: invite.email, password: p1 });
+      }).then(function(signIn) {
+        // supabase-js returns { error } instead of throwing
+        if (signIn.error) throw new Error('SIGNIN_FAILED');
+        window.location.href = dashboardByRole[role] || 'admin-dashboard.html';
       }).catch(function(err) {
-        errBox.textContent = err.message;
-        errBox.style.display = 'block';
+        if (accountCreated) {
+          // The invite is used up, so retrying here would fail. Send them to sign in instead.
+          card.innerHTML =
+            '<div class="center title">Your account is ready</div>' +
+            '<div class="center muted">We couldn\'t sign you in automatically. Sign in with your email and the password you just set.</div>' +
+            '<a class="btn-primary" href="' + LOGIN_PAGE + '">Go to sign in</a>';
+          return;
+        }
+        fail(err.message);
         btn.disabled = false;
         btn.textContent = 'Create account';
       });
@@ -151,19 +158,10 @@
       showError('No invite token was found in this link.');
     } else {
       sb.rpc('get_invite_by_token', { p_token: token }).then(function(result) {
-        if (result.error || !result.data || !result.data.length) {
-          showError('This invite could not be found.');
-          return;
-        }
+        if (result.error || !result.data || !result.data.length) { showError('This invite could not be found.'); return; }
         invite = result.data[0];
-        if (invite.status !== 'pending') {
-          showError('This invite has already been used or revoked.');
-          return;
-        }
-        if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-          showError('This invite has expired.');
-          return;
-        }
+        if (invite.status !== 'pending') { showError('This invite has already been used or revoked.'); return; }
+        if (invite.expires_at && new Date(invite.expires_at) < new Date()) { showError('This invite has expired.'); return; }
         renderStep1();
       }).catch(function() {
         showError('Something went wrong loading this invite.');
