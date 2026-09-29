@@ -1,10 +1,12 @@
 // supabase/functions/accept-invite/index.ts
 //
-// Called by accept-invite.html once someone has set a password. Creates
-// their Supabase Auth user and their `staff` row from the invite's role,
-// org, and department — then marks the invite as accepted so the link
-// can't be reused. Requires the service-role key, so this must run here,
-// never in client-side JS.
+// Called by accept-invite.html once someone has set a password. Claims the
+// invite, creates the Supabase Auth user and the `staff` row, and returns the
+// role so the page can redirect. Needs the service-role key, so it runs here
+// and never in client-side JS.
+//
+// Deploy WITHOUT JWT verification (the invitee has no session yet):
+//   supabase functions deploy accept-invite --no-verify-jwt
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -13,34 +15,37 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-function jsonResponse(body, status) {
+function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
-    status: status,
-    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   });
 }
 
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+Deno.serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed.' }, 405);
 
-  let body;
+  // deno-lint-ignore no-explicit-any
+  let body: any;
   try {
     body = await req.json();
-  } catch (e) {
+  } catch (_e) {
     return jsonResponse({ error: 'Invalid request body.' }, 400);
   }
 
-  const token = body.token;
-  const fullName = body.full_name;
-  const password = body.password;
+  const token = body?.token;
+  const fullName = typeof body?.full_name === 'string' ? body.full_name.trim() : '';
+  const password = body?.password;
 
-  if (!token || !fullName || !password) {
+  if (typeof token !== 'string' || !token || !fullName || typeof password !== 'string') {
     return jsonResponse({ error: 'Missing token, full_name, or password.' }, 400);
   }
-  if (password.length < 8) {
-    return jsonResponse({ error: 'Password must be at least 8 characters.' }, 400);
+  if (fullName.length > 100) {
+    return jsonResponse({ error: 'Name is too long.' }, 400);
+  }
+  if (password.length < 8 || password.length > 72) {
+    return jsonResponse({ error: 'Password must be between 8 and 72 characters.' }, 400);
   }
 
   const supabaseAdmin = createClient(
@@ -48,7 +53,7 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
   );
 
-  // 1. Look up the invite by token (bypasses RLS — service role).
+  // 1. Look up the invite (service role bypasses RLS).
   const inviteResult = await supabaseAdmin
     .from('invites')
     .select('id, org_id, email, role, department_id, status, expires_at')
@@ -67,40 +72,63 @@ Deno.serve(async (req) => {
     return jsonResponse({ error: 'This invite has expired. Ask your admin to send a new one.' }, 410);
   }
 
-  // 2. Create the auth user. Email is pre-confirmed since it came from a
-  //    trusted invite the admin sent, not a public signup.
+  // 2. Claim the invite atomically. Only one request can flip pending -> accepted,
+  //    so two simultaneous clicks can't both go on to create accounts.
+  const claim = await supabaseAdmin
+    .from('invites')
+    .update({ status: 'accepted' })
+    .eq('id', invite.id)
+    .eq('status', 'pending')
+    .select('id');
+
+  if (claim.error) {
+    return jsonResponse({ error: 'Could not process this invite. Please try again.' }, 500);
+  }
+  if (!claim.data || claim.data.length === 0) {
+    return jsonResponse({ error: 'This invite has already been used or revoked.' }, 410);
+  }
+
+  // If anything below fails, put the invite back so the person can retry.
+  async function releaseInvite() {
+    await supabaseAdmin.from('invites').update({ status: 'pending' }).eq('id', invite.id);
+  }
+
+  // 3. Create the auth user (email pre-confirmed: it came from an admin's invite).
   const createResult = await supabaseAdmin.auth.admin.createUser({
     email: invite.email,
-    password: password,
-    email_confirm: true
+    password,
+    email_confirm: true,
   });
 
   if (createResult.error || !createResult.data.user) {
-    // Most common cause: an account with this email already exists.
-    var msg = (createResult.error && createResult.error.message) || 'Could not create account.';
-    return jsonResponse({ error: msg }, 400);
+    await releaseInvite();
+    const code = createResult.error?.code;
+    const raw = createResult.error?.message ?? '';
+    if (code === 'email_exists' || /already.*(registered|exists)/i.test(raw)) {
+      return jsonResponse({
+        error: 'An account with this email already exists. Try signing in, or ask your admin for help.',
+      }, 409);
+    }
+    return jsonResponse({ error: raw || 'Could not create account.' }, 400);
   }
-  var newUser = createResult.data.user;
+  const newUser = createResult.data.user;
 
-  // 3. Create the staff row using the invite's role/org/department.
+  // 4. Create the staff row from the invite's role/org/department.
   const staffResult = await supabaseAdmin.from('staff').insert({
     user_id: newUser.id,
     org_id: invite.org_id,
     department_id: invite.department_id,
     role: invite.role,
     full_name: fullName,
-    is_active: true
+    is_active: true,
   });
 
   if (staffResult.error) {
-    // Roll back the auth user so a failed invite never leaves an orphaned
-    // login with no matching staff record.
+    // Roll back so a failed invite never leaves an orphaned login.
     await supabaseAdmin.auth.admin.deleteUser(newUser.id);
+    await releaseInvite();
     return jsonResponse({ error: 'Could not finish setting up your account: ' + staffResult.error.message }, 500);
   }
-
-  // 4. Mark the invite accepted so the link can't be reused.
-  await supabaseAdmin.from('invites').update({ status: 'accepted' }).eq('id', invite.id);
 
   return jsonResponse({ success: true, role: invite.role, email: invite.email }, 200);
 });
