@@ -8,11 +8,11 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #F7F9FB; --white: #fff; --navy: #0D1B2A;
-      --teal: #0A7EA4; --teal-light: #E6F4F9;
-      --text: #1A2636; --muted: #6B7A8D;
-      --border: #DDE3EA; --radius: 14px;
-      --card-shadow: 0 2px 12px rgba(13,27,42,0.07);
+      --bg: #FAF9F5; --white: #fff; --navy: #1F2937;
+      --teal: #059669; --teal-light: #ECFDF5;
+      --text: #1A2636; --muted: #78716C;
+      --border: #E7E5E0; --radius: 16px;
+      --card-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(31,29,23,0.06);
     }
     body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 80px; }
 
@@ -35,10 +35,10 @@
     .welcome-sub { font-size: 13px; color: rgba(255,255,255,0.5); }
 
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 20px 24px 0; }
-    .stat-card { background: var(--white); border-radius: 12px; padding: 14px 12px; text-align: center; box-shadow: var(--card-shadow); }
+    .stat-card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 14px 12px; text-align: center; box-shadow: var(--card-shadow); }
     .stat-num { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--navy); }
     .stat-label { font-size: 11px; color: var(--muted); margin-top: 2px; font-weight: 500; }
-    .stat-card.pending .stat-num { color: #D97706; }
+    .stat-card.pending .stat-num { color: #B45309; }
 
     .section { padding: 24px 24px 0; }
     .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
@@ -50,9 +50,29 @@
 
     .empty-note { font-size: 13px; color: var(--muted); padding: 16px 0; text-align: center; }
 
+    .invite-form {
+      background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--card-shadow);
+      padding: 16px; margin-bottom: 14px; display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .invite-form input[type="email"] {
+      flex: 2 1 180px; padding: 11px 13px; border-radius: 10px; border: 1.5px solid var(--border);
+      font-size: 14px; font-family: 'Inter', sans-serif; background: var(--bg); outline: none;
+    }
+    .invite-form input[type="email"]:focus { border-color: var(--teal); background: #fff; box-shadow: 0 0 0 3px rgba(5,150,105,.12); }
+    .invite-form select {
+      flex: 1 1 120px; padding: 11px 10px; border-radius: 10px; border: 1.5px solid var(--border);
+      font-size: 13px; font-family: 'Inter', sans-serif; background: var(--bg);
+    }
+    .invite-card {
+      background: var(--white); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--card-shadow);
+      padding: 14px 16px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .invite-email { font-size: 14px; font-weight: 600; color: var(--text); }
+    .invite-meta { font-size: 12px; color: var(--muted); margin-top: 1px; text-transform: capitalize; }
+
     .request-card {
       background: var(--white); border-radius: var(--radius); box-shadow: var(--card-shadow);
-      padding: 16px; margin-bottom: 10px; border-left: 4px solid #F59E0B;
+      padding: 16px; margin-bottom: 10px; border: 1px solid var(--border); border-left: 4px solid #D97706;
     }
     .request-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
     .request-name { font-size: 15px; font-weight: 600; color: var(--text); }
@@ -64,10 +84,10 @@
       font-size: 13px; font-weight: 600; font-family: 'Inter', sans-serif;
       cursor: pointer; transition: all 0.15s; background: var(--white);
     }
-    .req-btn.approve { color: #16A34A; border-color: #86EFAC; }
-    .req-btn.approve:hover { background: #DCFCE7; }
-    .req-btn.reject { color: #DC2626; border-color: #FCA5A5; }
-    .req-btn.reject:hover { background: #FEE2E2; }
+    .req-btn.approve { color: #047857; border-color: #A7F3D0; }
+    .req-btn.approve:hover { background: #ECFDF5; }
+    .req-btn.reject { color: #B91C1C; border-color: #FCA5A5; }
+    .req-btn.reject:hover { background: #FEF2F2; }
     .req-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .role-select-row { display: flex; gap: 8px; margin-bottom: 10px; }
@@ -77,7 +97,7 @@
     }
 
     .staff-card {
-      background: var(--white); border-radius: 12px; box-shadow: var(--card-shadow);
+      background: var(--white); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--card-shadow);
       padding: 14px 16px; margin-bottom: 8px;
     }
     .staff-card-top { display: flex; align-items: center; justify-content: space-between; }
@@ -94,9 +114,10 @@
       font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 50px;
       text-transform: capitalize;
     }
+    .role-pill.director { background: #E7E5E0; color: #1F2937; }
     .role-pill.admin { background: var(--teal-light); color: var(--teal); }
-    .role-pill.doctor { background: #FEF3C7; color: #D97706; }
-    .role-pill.receptionist { background: #EDE9FE; color: #7C3AED; }
+    .role-pill.doctor { background: #FEF3E2; color: #B45309; }
+    .role-pill.receptionist { background: #F5F4F1; color: #57534E; }
     .staff-manage-btn {
       font-size: 11px; font-weight: 600; color: var(--teal); background: none;
       border: 1.5px solid var(--teal-light); border-radius: 50px; padding: 5px 11px;
@@ -119,30 +140,30 @@
       flex: 1; padding: 9px; border-radius: 8px; border: none; background: var(--teal);
       color: #fff; font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif;
     }
-    .staff-save-btn:hover { background: #086988; }
+    .staff-save-btn:hover { background: #047857; }
     .staff-toggle-active-btn {
       flex: 1; padding: 9px; border-radius: 8px; border: 1.5px solid #FCA5A5;
-      background: var(--white); color: #DC2626; font-size: 12.5px; font-weight: 600;
+      background: var(--white); color: #B91C1C; font-size: 12.5px; font-weight: 600;
       cursor: pointer; font-family: 'Inter', sans-serif;
     }
-    .staff-toggle-active-btn.reactivate { border-color: #86EFAC; color: #16A34A; }
+    .staff-toggle-active-btn.reactivate { border-color: #A7F3D0; color: #047857; }
     .staff-manage-btn:disabled, .staff-save-btn:disabled, .staff-toggle-active-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .staff-manage-error { font-size: 12px; color: #DC2626; margin-top: 8px; display: none; }
+    .staff-manage-error { font-size: 12px; color: #B91C1C; margin-top: 8px; display: none; }
 
     .add-dept-form {
-      background: var(--white); border-radius: var(--radius); box-shadow: var(--card-shadow);
+      background: var(--white); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--card-shadow);
       padding: 16px; margin-bottom: 14px; display: flex; gap: 8px;
     }
     .add-dept-form input {
       flex: 1; padding: 11px 13px; border-radius: 10px; border: 1.5px solid var(--border);
       font-size: 14px; font-family: 'Inter', sans-serif; background: var(--bg); outline: none;
     }
-    .add-dept-form input:focus { border-color: var(--teal); background: #fff; }
+    .add-dept-form input:focus { border-color: var(--teal); background: #fff; box-shadow: 0 0 0 3px rgba(5,150,105,.12); }
     .add-dept-btn {
       padding: 11px 18px; border-radius: 10px; border: none; background: var(--teal);
       color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap;
     }
-    .add-dept-btn:hover { background: #086988; }
+    .add-dept-btn:hover { background: #047857; }
 
     .dept-pill {
       display: inline-flex; align-items: center; gap: 6px; background: var(--white);
@@ -150,17 +171,17 @@
       font-size: 13px; font-weight: 500; color: var(--text); margin: 0 8px 8px 0;
     }
 
-    .skel { background: linear-gradient(90deg,#eee 25%,#f5f5f5 50%,#eee 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 8px; }
+    .skel { background: linear-gradient(90deg,#F2F1ED 25%,#F8F7F4 50%,#F2F1ED 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 8px; }
     @keyframes shimmer { to { background-position: -200% 0; } }
 
-    .error-box { margin: 16px 24px; padding: 14px 16px; background: #FEE2E2; border: 1.5px solid #FCA5A5; border-radius: 10px; font-size: 14px; color: #991B1B; display: none; }
-    .toast { margin: 0 24px 14px; padding: 12px 14px; background: #DCFCE7; border: 1.5px solid #86EFAC; border-radius: 10px; font-size: 13px; color: #15803D; display: none; font-weight: 500; }
+    .error-box { margin: 16px 24px; padding: 14px 16px; background: #FEF2F2; border: 1.5px solid #FCA5A5; border-radius: 10px; font-size: 14px; color: #991B1B; display: none; }
+    .toast { margin: 0 24px 14px; padding: 12px 14px; background: #ECFDF5; border: 1.5px solid #A7F3D0; border-radius: 10px; font-size: 13px; color: #047857; display: none; font-weight: 500; }
 
-    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #ffffff; border-top: 2px solid #DDE3EA; display: flex; height: 64px; z-index: 999; box-shadow: 0 -2px 12px rgba(0,0,0,0.08); }
-    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #6B7A8D; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; border: none; background: none; cursor: pointer; padding: 8px 4px; position: relative; }
-    .nav-badge { position: absolute; top: 3px; right: calc(50% - 26px); background: #DC2626; color: #fff; font-size: 9px; font-weight: 700; min-width: 15px; height: 15px; border-radius: 50px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; }
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #ffffff; border-top: 1px solid var(--border); display: flex; height: 64px; z-index: 999; box-shadow: 0 -2px 12px rgba(0,0,0,0.06); }
+    .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #78716C; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; border: none; background: none; cursor: pointer; padding: 8px 4px; position: relative; }
+    .nav-badge { position: absolute; top: 3px; right: calc(50% - 26px); background: #B91C1C; color: #fff; font-size: 9px; font-weight: 700; min-width: 15px; height: 15px; border-radius: 50px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; }
     .nav-item img { width: 22px; height: 22px; }
-    .nav-item.active { color: #0A7EA4; }
+    .nav-item.active { color: #059669; }
   </style>
 </head>
 <body>
@@ -192,6 +213,28 @@
 
   <div class="error-box" id="errorBox"></div>
   <div class="toast" id="toast"></div>
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-title">Invite Staff</div>
+    </div>
+    <div class="invite-form">
+      <input type="email" id="inviteEmailInput" placeholder="staff@hospital.com" />
+      <select id="inviteRoleSelect">
+        <option value="director">Director</option>
+        <option value="admin">Admin</option>
+        <option value="receptionist">Receptionist</option>
+        <option value="doctor" selected>Doctor</option>
+      </select>
+      <select id="inviteDeptSelect">
+        <option value="">No department (solo)</option>
+      </select>
+      <button class="add-dept-btn" id="sendInviteBtn">Send invite</button>
+    </div>
+    <div id="invitesContainer">
+      <div class="skel" style="height:60px;border-radius:12px;margin-bottom:8px;"></div>
+    </div>
+  </div>
 
   <div class="section">
     <div class="section-header">
@@ -227,20 +270,16 @@
 
   <nav class="bottom-nav">
     <a class="nav-item active" href="admin-dashboard.html">
-      <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%230A7EA4' stroke-width='2' viewBox='0 0 24 24'><rect x='3' y='3' width='7' height='7' rx='1'/><rect x='14' y='3' width='7' height='7' rx='1'/><rect x='3' y='14' width='7' height='7' rx='1'/><rect x='14' y='14' width='7' height='7' rx='1'/></svg>" alt=""/>
+      <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%23059669' stroke-width='2' viewBox='0 0 24 24'><rect x='3' y='3' width='7' height='7' rx='1'/><rect x='14' y='3' width='7' height='7' rx='1'/><rect x='3' y='14' width='7' height='7' rx='1'/><rect x='14' y='14' width='7' height='7' rx='1'/></svg>" alt=""/>
       <span>Dashboard</span>
     </a>
     <a class="nav-item" href="front-desk.html" data-nav-key="frontdesk">
-      <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%236B7A8D' stroke-width='2' viewBox='0 0 24 24'><path d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/><path d='M9 22V12h6v10'/></svg>" alt=""/>
+      <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%2378716C' stroke-width='2' viewBox='0 0 24 24'><path d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/><path d='M9 22V12h6v10'/></svg>" alt=""/>
       <span>Front Desk</span>
     </a>
     <a class="nav-item" href="daily-activity.html" data-nav-key="activity">
-      <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%236B7A8D' stroke-width='2' viewBox='0 0 24 24'><path d='M3 3v18h18'/><path d='M18 17V9'/><path d='M13 17V5'/><path d='M8 17v-3'/></svg>" alt=""/>
+      <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%2378716C' stroke-width='2' viewBox='0 0 24 24'><path d='M3 3v18h18'/><path d='M18 17V9'/><path d='M13 17V5'/><path d='M8 17v-3'/></svg>" alt=""/>
       <span>Activity</span>
-    </a>
-    <a class="nav-item" href="index.html">
-      <img width="22" height="22" src="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22' fill='none' stroke='%236B7A8D' stroke-width='2' viewBox='0 0 24 24'><path d='M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z'/><path d='M9 21V12h6v9'/></svg>" alt=""/>
-      <span>Patient View</span>
     </a>
   </nav>
 
@@ -280,7 +319,7 @@
       return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/staff?user_id=eq.' + session.user.id + '&select=id,full_name,role,org_id', {
         headers: authHeaders
       }).then(CB.safeJson).then(function(rows) {
-        if (!rows.length || rows[0].role !== 'admin') {
+        if (!rows.length || (rows[0].role !== 'admin' && rows[0].role !== 'director')) {
           throw new Error('You do not have admin access.');
         }
         return rows[0];
@@ -307,6 +346,12 @@
 
     function fetchAllStaff(orgId) {
       return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/staff?org_id=eq.' + orgId + '&select=id,full_name,role,specialty,phone,is_active,department_id&order=role.asc', {
+        headers: authHeaders
+      }).then(CB.safeJson);
+    }
+
+    function fetchPendingInvites(orgId) {
+      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/invites?org_id=eq.' + orgId + '&status=eq.pending&select=id,email,role,department_id,created_at&order=created_at.desc', {
         headers: authHeaders
       }).then(CB.safeJson);
     }
@@ -480,6 +525,117 @@
       });
     });
 
+    function populateInviteDeptSelect(departments) {
+      var select = document.getElementById('inviteDeptSelect');
+      var current = select.value;
+      select.innerHTML = '';
+      var noneOpt = document.createElement('option');
+      noneOpt.value = '';
+      noneOpt.textContent = 'No department (solo)';
+      select.appendChild(noneOpt);
+      (departments || []).forEach(function(d) {
+        var opt = document.createElement('option');
+        opt.value = d.id;
+        opt.textContent = d.name;
+        select.appendChild(opt);
+      });
+      select.value = current;
+    }
+
+    function renderInvites(invites, departments) {
+      var container = document.getElementById('invitesContainer');
+      container.innerHTML = '';
+
+      if (!invites.length) {
+        container.innerHTML = '<div class="empty-note">No pending invites.</div>';
+        return;
+      }
+
+      var deptMap = {};
+      (departments || []).forEach(function(d) { deptMap[d.id] = d.name; });
+
+      invites.forEach(function(inv) {
+        var card = document.createElement('div');
+        card.className = 'invite-card';
+
+        var info = document.createElement('div');
+        var email = document.createElement('div');
+        email.className = 'invite-email';
+        email.textContent = inv.email;
+        var meta = document.createElement('div');
+        meta.className = 'invite-meta';
+        var bits = [inv.department_id ? deptMap[inv.department_id] : null, 'Invited ' + new Date(inv.created_at).toLocaleDateString()].filter(Boolean);
+        meta.textContent = bits.join(' · ');
+        info.appendChild(email);
+        info.appendChild(meta);
+
+        var right = document.createElement('div');
+        right.className = 'staff-top-right';
+        var pill = document.createElement('span');
+        pill.className = 'role-pill ' + inv.role;
+        pill.textContent = inv.role;
+        var revokeBtn = document.createElement('button');
+        revokeBtn.className = 'req-btn reject';
+        revokeBtn.style.flex = 'none';
+        revokeBtn.textContent = 'Revoke';
+        revokeBtn.addEventListener('click', function() {
+          if (confirm('Revoke invite to ' + inv.email + '?')) revokeInvite(inv.id, revokeBtn);
+        });
+        right.appendChild(pill);
+        right.appendChild(revokeBtn);
+
+        card.appendChild(info);
+        card.appendChild(right);
+        container.appendChild(card);
+      });
+    }
+
+    function revokeInvite(inviteId, btn) {
+      btn.disabled = true;
+      CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/invites?id=eq.' + inviteId, {
+        method: 'PATCH', headers: authHeaders, body: JSON.stringify({ status: 'revoked' })
+      }).then(CB.safeJson).then(function() {
+        showToast('Invite revoked.');
+        loadAll();
+      }).catch(function(err) {
+        if (err.message === 'SESSION_EXPIRED') return;
+        showErrorBox('Could not revoke invite: ' + err.message);
+        btn.disabled = false;
+      });
+    }
+
+    document.getElementById('sendInviteBtn').addEventListener('click', function() {
+      var emailInput = document.getElementById('inviteEmailInput');
+      var roleSelect = document.getElementById('inviteRoleSelect');
+      var deptSelect = document.getElementById('inviteDeptSelect');
+      var email = emailInput.value.trim();
+      if (!email) return;
+
+      var btn = document.getElementById('sendInviteBtn');
+      btn.disabled = true;
+
+      CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/invites', {
+        method: 'POST', headers: authHeaders,
+        body: JSON.stringify({
+          org_id: myOrgId,
+          email: email,
+          role: roleSelect.value,
+          department_id: deptSelect.value || null,
+          invited_by: myStaffId,
+          status: 'pending'
+        })
+      }).then(CB.safeJson).then(function() {
+        emailInput.value = '';
+        showToast('Invite sent to ' + email + '.');
+        loadAll();
+      }).catch(function(err) {
+        if (err.message === 'SESSION_EXPIRED') return;
+        showErrorBox('Could not send invite: ' + err.message);
+      }).finally(function() {
+        btn.disabled = false;
+      });
+    });
+
     function renderStaff(staffList, departments) {
       var container = document.getElementById('staffContainer');
       container.innerHTML = '';
@@ -546,7 +702,7 @@
         var roleLabel = document.createElement('label');
         roleLabel.textContent = 'Role';
         var roleSelect = document.createElement('select');
-        ['admin', 'doctor', 'receptionist'].forEach(function(r) {
+        ['director', 'admin', 'doctor', 'receptionist'].forEach(function(r) {
           var opt = document.createElement('option');
           opt.value = r;
           opt.textContent = r.charAt(0).toUpperCase() + r.slice(1);
@@ -649,12 +805,15 @@
       Promise.all([
         fetchJoinRequests(myOrgId),
         fetchDepartments(myOrgId),
-        fetchAllStaff(myOrgId)
+        fetchAllStaff(myOrgId),
+        fetchPendingInvites(myOrgId)
       ]).then(function(results) {
-        var requests = results[0], departments = results[1], staffList = results[2];
+        var requests = results[0], departments = results[1], staffList = results[2], invites = results[3];
         renderRequests(requests, departments);
         renderDepartments(departments);
         renderStaff(staffList, departments);
+        renderInvites(invites, departments);
+        populateInviteDeptSelect(departments);
       }).catch(function(err) {
         if (err.message === 'SESSION_EXPIRED') return;
         showErrorBox(err.message);
