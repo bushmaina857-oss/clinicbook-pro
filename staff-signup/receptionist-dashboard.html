@@ -15,24 +15,20 @@
       --card-shadow: 0 2px 12px rgba(13,27,42,0.07);
     }
     body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; padding-bottom: 80px; }
+    button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 
-    header {
-      background: var(--navy); padding: 0 24px;
-      display: flex; align-items: center; justify-content: space-between;
-      height: 60px; position: sticky; top: 0; z-index: 100;
-    }
+    header { background: var(--navy); padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 60px; position: sticky; top: 0; z-index: 100; }
     .logo { font-family: 'DM Serif Display', serif; font-size: 20px; color: #fff; letter-spacing: -0.5px; }
     .logo span { color: var(--teal); }
-    .logout-btn {
-      font-size: 13px; color: rgba(255,255,255,0.6); cursor: pointer;
-      background: none; border: none; font-family: 'Inter', sans-serif;
-      padding: 6px 12px; border-radius: 8px; transition: all 0.15s;
-    }
+    .logout-btn { font-size: 13px; color: rgba(255,255,255,0.6); cursor: pointer; background: none; border: none; font-family: 'Inter', sans-serif; padding: 6px 12px; border-radius: 8px; transition: all 0.15s; }
     .logout-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
 
     .welcome { background: var(--navy); padding: 20px 24px 28px; }
     .welcome-name { font-family: 'DM Serif Display', serif; font-size: 22px; color: #fff; margin-bottom: 4px; }
     .welcome-sub { font-size: 13px; color: rgba(255,255,255,0.5); }
+
+    .banner { margin: 16px 24px 0; padding: 12px 14px; background: var(--teal-light); border: 1.5px solid #B6DDEB; border-radius: 10px; font-size: 13px; color: #075A77; display: none; align-items: flex-start; justify-content: space-between; gap: 10px; }
+    .banner button { background: none; border: none; color: #075A77; font-size: 18px; line-height: 1; cursor: pointer; }
 
     .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 20px 24px 0; }
     .stat-card { background: var(--white); border-radius: 12px; padding: 14px 12px; text-align: center; box-shadow: var(--card-shadow); }
@@ -41,121 +37,77 @@
     .stat-card.pending .stat-num { color: #D97706; }
     .stat-card.confirmed .stat-num { color: #16A34A; }
 
-    .view-tabs { display: flex; gap: 0; padding: 20px 24px 0; border-bottom: 1px solid var(--border); }
-    .view-tab {
-      flex: 1; padding: 10px 4px; text-align: center;
-      font-size: 12px; font-weight: 500; color: var(--muted);
-      cursor: pointer; border-bottom: 2px solid transparent;
-      transition: all 0.15s; background: none; border-top: none;
-      border-left: none; border-right: none; font-family: 'Inter', sans-serif;
-    }
+    .view-tabs { display: flex; padding: 20px 24px 0; border-bottom: 1px solid var(--border); }
+    .view-tab { flex: 1; padding: 10px 4px; text-align: center; font-size: 12px; font-weight: 500; color: var(--muted); cursor: pointer; border: none; border-bottom: 2px solid transparent; transition: all 0.15s; background: none; font-family: 'Inter', sans-serif; }
     .view-tab.active { color: var(--teal); border-bottom-color: var(--teal); }
     .view-panel { display: none; }
     .view-panel.active { display: block; }
 
     .section { padding: 20px 24px 0; }
-    .section-title { font-family: 'DM Serif Display', serif; font-size: 18px; color: var(--text); margin-bottom: 12px; }
-
     .doctor-group { margin-bottom: 20px; }
-    .doctor-header {
-      display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
-      padding-bottom: 8px; border-bottom: 2px solid var(--teal);
-    }
-    .doctor-avatar {
-      width: 32px; height: 32px; border-radius: 8px; background: var(--teal-light);
-      display: flex; align-items: center; justify-content: center;
-      font-family: 'DM Serif Display', serif; font-size: 13px; color: var(--teal); flex-shrink: 0;
-    }
+    .doctor-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid var(--teal); }
+    .doctor-avatar { width: 32px; height: 32px; border-radius: 8px; background: var(--teal-light); display: flex; align-items: center; justify-content: center; font-family: 'DM Serif Display', serif; font-size: 13px; color: var(--teal); flex-shrink: 0; }
     .doctor-name { font-size: 14px; font-weight: 600; color: var(--navy); }
     .doctor-specialty { font-size: 11px; color: var(--muted); }
 
-    .appt-card {
-      background: var(--white); border-radius: var(--radius);
-      box-shadow: var(--card-shadow); padding: 14px 16px;
-      border-left: 4px solid var(--border); margin-bottom: 8px;
-    }
+    .appt-card { background: var(--white); border-radius: var(--radius); box-shadow: var(--card-shadow); padding: 14px 16px; border-left: 4px solid var(--border); margin-bottom: 8px; }
     .appt-card.pending { border-left-color: #F59E0B; }
     .appt-card.confirmed { border-left-color: #22C55E; }
     .appt-card.cancelled { border-left-color: #EF4444; opacity: 0.7; }
-
-    .appt-top { display: flex; justify-content: space-between; align-items: flex-start; }
-    .appt-patient { font-size: 14px; font-weight: 600; color: var(--text); }
+    .appt-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .appt-patient { font-size: 14px; font-weight: 600; }
     .appt-time { font-size: 12px; color: var(--teal); font-weight: 500; margin-top: 2px; }
     .appt-phone { font-size: 12px; color: var(--muted); margin-top: 2px; }
-
     .status-badge { font-size: 10px; font-weight: 600; padding: 4px 9px; border-radius: 50px; text-transform: uppercase; letter-spacing: 0.04em; flex-shrink: 0; }
     .status-badge.pending { background: #FEF3C7; color: #D97706; }
     .status-badge.confirmed { background: #DCFCE7; color: #16A34A; }
     .status-badge.cancelled { background: #FEE2E2; color: #DC2626; }
 
     .appt-actions { display: flex; gap: 6px; margin-top: 10px; }
-    .action-btn {
-      flex: 1; padding: 7px; border-radius: 8px; border: 1.5px solid var(--border);
-      font-size: 12px; font-weight: 600; font-family: 'Inter', sans-serif;
-      cursor: pointer; transition: all 0.15s; background: var(--white);
-    }
+    .action-btn { flex: 1; padding: 7px; border-radius: 8px; border: 1.5px solid var(--border); font-size: 12px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; background: var(--white); }
     .action-btn.confirm { color: #16A34A; border-color: #86EFAC; }
     .action-btn.cancel { color: #DC2626; border-color: #FCA5A5; }
     .action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .book-form {
-      background: var(--white); border-radius: var(--radius); box-shadow: var(--card-shadow);
-      padding: 18px; margin-bottom: 16px;
-    }
+    .book-form { background: var(--white); border-radius: var(--radius); box-shadow: var(--card-shadow); padding: 18px; margin-bottom: 16px; }
     .form-group { margin-bottom: 14px; }
-    .form-group label {
-      display: block; font-size: 11px; font-weight: 600; color: var(--muted);
-      text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;
-    }
-    .form-group input, .form-group select, .form-group textarea {
-      width: 100%; padding: 11px 13px; border-radius: 10px;
-      border: 1.5px solid var(--border); font-size: 14px;
-      font-family: 'Inter', sans-serif; color: var(--text);
-      outline: none; transition: border-color 0.15s; background: var(--bg);
-    }
+    .form-group label { display: block; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 11px 13px; border-radius: 10px; border: 1.5px solid var(--border); font-size: 14px; font-family: 'Inter', sans-serif; color: var(--text); transition: border-color 0.15s; background: var(--bg); }
     .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--teal); background: #fff; }
     .form-group textarea { resize: none; height: 60px; }
 
-    .slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
-    .slot-btn {
-      padding: 10px 6px; border-radius: 8px; border: 1.5px solid var(--border);
-      background: var(--white); cursor: pointer; transition: all 0.15s;
-      text-align: center; font-family: 'Inter', sans-serif; font-size: 12px;
-    }
-    .slot-btn:hover:not(.full) { border-color: var(--teal); background: var(--teal-light); }
+    .slot-date { font-size: 12px; font-weight: 600; color: var(--navy); margin: 12px 0 6px; }
+    .slot-date:first-child { margin-top: 4px; }
+    .slot-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .slot-btn { padding: 9px 6px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--white); cursor: pointer; text-align: center; font-family: 'Inter', sans-serif; font-size: 12px; color: var(--text); }
+    .slot-btn small { display: block; font-size: 10px; color: var(--muted); margin-top: 1px; }
+    .slot-btn:hover:not(:disabled) { border-color: var(--teal); background: var(--teal-light); }
     .slot-btn.selected { border-color: var(--teal); background: var(--teal); color: #fff; }
-    .slot-btn.full { opacity: 0.4; cursor: not-allowed; background: #f5f5f5; }
+    .slot-btn.selected small { color: rgba(255,255,255,0.8); }
+    .slot-btn:disabled { opacity: 0.4; cursor: not-allowed; background: #f5f5f5; }
 
-    .submit-btn {
-      width: 100%; padding: 13px; border-radius: 10px; border: none;
-      background: var(--teal); color: #fff; font-size: 14px; font-weight: 600;
-      font-family: 'Inter', sans-serif; cursor: pointer; transition: background 0.15s; margin-top: 6px;
-    }
+    .submit-btn { width: 100%; padding: 13px; border-radius: 10px; border: none; background: var(--teal); color: #fff; font-size: 14px; font-weight: 600; font-family: 'Inter', sans-serif; cursor: pointer; margin-top: 6px; }
     .submit-btn:hover { background: #086988; }
     .submit-btn:disabled { background: var(--muted); cursor: not-allowed; }
 
     .search-box { display: flex; gap: 8px; margin-bottom: 16px; }
-    .search-box input {
-      flex: 1; padding: 12px 14px; border-radius: 10px; border: 1.5px solid var(--border);
-      font-size: 14px; font-family: 'Inter', sans-serif; background: var(--white); outline: none;
-    }
+    .search-box input { flex: 1; min-width: 0; padding: 12px 14px; border-radius: 10px; border: 1.5px solid var(--border); font-size: 14px; font-family: 'Inter', sans-serif; background: var(--white); }
     .search-box input:focus { border-color: var(--teal); }
-    .search-btn {
-      padding: 12px 18px; border-radius: 10px; border: none; background: var(--teal);
-      color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
-    }
+    .search-btn { padding: 12px 18px; border-radius: 10px; border: none; background: var(--teal); color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
 
     .success-toast { background: #DCFCE7; border: 1.5px solid #86EFAC; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #15803D; margin-bottom: 14px; display: none; text-align: center; font-weight: 500; }
     .error-toast { background: #FEE2E2; border: 1.5px solid #FCA5A5; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #991B1B; margin-bottom: 14px; display: none; }
 
     .skel { background: linear-gradient(90deg,#eee 25%,#f5f5f5 50%,#eee 75%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 8px; }
     @keyframes shimmer { to { background-position: -200% 0; } }
+    @media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
     .empty { text-align: center; padding: 30px 0; }
     .empty p { font-size: 13px; color: var(--muted); }
 
     .error-box { margin: 16px 24px; padding: 14px 16px; background: #FEE2E2; border: 1.5px solid #FCA5A5; border-radius: 10px; font-size: 14px; color: #991B1B; display: none; }
+    .error-box button { display: block; margin-top: 10px; padding: 8px 14px; border-radius: 8px; border: none; background: #991B1B; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }
 
-    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #ffffff; border-top: 2px solid #DDE3EA; display: flex; height: 64px; z-index: 999; box-shadow: 0 -2px 12px rgba(0,0,0,0.08); }
+    .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 2px solid #DDE3EA; display: flex; height: 64px; z-index: 999; box-shadow: 0 -2px 12px rgba(0,0,0,0.08); }
     .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-decoration: none; color: #6B7A8D; font-size: 11px; font-weight: 600; font-family: 'Inter', sans-serif; border: none; background: none; cursor: pointer; padding: 8px 4px; position: relative; }
     .nav-badge { position: absolute; top: 3px; right: calc(50% - 26px); background: #DC2626; color: #fff; font-size: 9px; font-weight: 700; min-width: 15px; height: 15px; border-radius: 50px; display: flex; align-items: center; justify-content: center; padding: 0 3px; line-height: 1; }
     .nav-item img { width: 22px; height: 22px; }
@@ -174,6 +126,11 @@
     <div class="welcome-sub" id="welcomeSub"></div>
   </div>
 
+  <div class="banner" id="welcomeBanner" role="status">
+    <span>Your account is ready. Confirm pending requests from WhatsApp under Today, or book a walk-in patient from Book Patient.</span>
+    <button id="bannerClose" aria-label="Dismiss">&times;</button>
+  </div>
+
   <div class="stats">
     <div class="stat-card pending">
       <div class="stat-num" id="statPending">&mdash;</div>
@@ -189,7 +146,7 @@
     </div>
   </div>
 
-  <div class="error-box" id="errorBox"></div>
+  <div class="error-box" id="errorBox" role="alert"></div>
 
   <div class="view-tabs">
     <button class="view-tab active" id="tabToday">Today</button>
@@ -207,33 +164,29 @@
 
   <div class="view-panel" id="panelBook">
     <div class="section">
-      <div class="success-toast" id="bookSuccessToast"></div>
-      <div class="error-toast" id="bookErrorToast"></div>
-
+      <div class="success-toast" id="bookSuccessToast" role="status"></div>
+      <div class="error-toast" id="bookErrorToast" role="alert"></div>
       <div class="book-form">
         <div class="form-group">
-          <label>Select Doctor</label>
+          <label for="doctorSelect">Select Doctor</label>
           <select id="doctorSelect"><option value="">Loading doctors...</option></select>
         </div>
-
         <div class="form-group" id="slotPickerGroup" style="display:none;">
           <label>Available Slots</label>
           <div id="slotPicker"></div>
         </div>
-
         <div class="form-group">
-          <label>Patient Name</label>
-          <input type="text" id="bookPatientName" placeholder="Full name" />
+          <label for="bookPatientName">Patient Name</label>
+          <input type="text" id="bookPatientName" placeholder="Full name" autocomplete="off" />
         </div>
         <div class="form-group">
-          <label>Patient Phone</label>
-          <input type="tel" id="bookPatientPhone" placeholder="e.g. +213 555 000 111" />
+          <label for="bookPatientPhone">Patient Phone</label>
+          <input type="tel" id="bookPatientPhone" placeholder="e.g. +254 712 345 678" autocomplete="off" />
         </div>
         <div class="form-group">
-          <label>Reason (optional)</label>
+          <label for="bookReason">Reason (optional)</label>
           <textarea id="bookReason" placeholder="Reason for visit..."></textarea>
         </div>
-
         <button class="submit-btn" id="bookSubmitBtn" disabled>Select a slot first</button>
       </div>
     </div>
@@ -242,7 +195,7 @@
   <div class="view-panel" id="panelSearch">
     <div class="section">
       <div class="search-box">
-        <input type="tel" id="patientSearchInput" placeholder="Search by phone number..." />
+        <input type="tel" id="patientSearchInput" placeholder="Search by phone number..." aria-label="Patient phone number" />
         <button class="search-btn" id="patientSearchBtn">Search</button>
       </div>
       <div id="searchResultsContainer"></div>
@@ -268,27 +221,43 @@
   <script>
     var session = CB.requireSession();
     var authHeaders = CB.authHeaders;
+    var REST = CB.SUPABASE_URL + '/rest/v1/';
 
-    var myStaffId = null;
-    var myOrgId = null;
-    var allDoctors = [];
-    var selectedSlot = null;
+    var myStaffId = null, myOrgId = null, allDoctors = [], selectedSlot = null;
 
-    function getLocalDateString() {
-      var d = new Date();
+    function dateStr(d) {
       return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
     }
-    var today = getLocalDateString();
+    var today = dateStr(new Date());
+    var tomorrow = dateStr(new Date(Date.now() + 86400000));
 
     function formatTime(t) {
-      var parts = t.split(':');
-      var h = parseInt(parts[0]);
-      var ampm = h >= 12 ? 'PM' : 'AM';
-      h = h % 12 || 12;
-      return h + ':' + parts[1] + ' ' + ampm;
+      if (!t) return '';
+      var p = t.split(':'), h = parseInt(p[0], 10);
+      return (h % 12 || 12) + ':' + p[1] + ' ' + (h >= 12 ? 'PM' : 'AM');
+    }
+    function dateLabel(s) {
+      if (s === today) return 'Today';
+      if (s === tomorrow) return 'Tomorrow';
+      return new Date(s + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
     }
     function getInitials(name) {
       return (name || '').split(' ').filter(Boolean).slice(0, 2).map(function(n) { return n[0]; }).join('').toUpperCase();
+    }
+    function normalizePhone(p) { return p.replace(/[\s\-().]/g, ''); }
+
+    // Safe DOM helpers (never put server text or error messages into innerHTML)
+    function el(tag, cls, text) {
+      var e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text != null) e.textContent = text;
+      return e;
+    }
+    function setMsg(container, msg) {
+      container.innerHTML = '';
+      var d = el('div', 'empty');
+      d.appendChild(el('p', null, msg));
+      container.appendChild(d);
     }
 
     function switchTab(tabId, panelId) {
@@ -301,35 +270,39 @@
     document.getElementById('tabBook').addEventListener('click', function() { switchTab('tabBook', 'panelBook'); });
     document.getElementById('tabSearch').addEventListener('click', function() { switchTab('tabSearch', 'panelSearch'); });
 
+    // ---- Access gate: invited account must be linked to an active receptionist row ----
     function fetchMyStaff() {
-      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/staff?user_id=eq.' + session.user.id + '&select=id,full_name,role,org_id', {
+      return CB.authedFetch(REST + 'staff?user_id=eq.' + session.user.id + '&select=id,full_name,role,org_id,is_active', {
         headers: authHeaders
       }).then(CB.safeJson).then(function(rows) {
-        if (!rows.length || rows[0].role !== 'receptionist') throw new Error('You do not have receptionist access.');
-        return rows[0];
+        if (!rows.length) throw new Error('Your account is not linked to a clinic yet. Ask your admin to send a new invite.');
+        var s = rows[0];
+        if (s.is_active === false) throw new Error('Your account has been deactivated. Contact your clinic admin.');
+        if (s.role !== 'receptionist') throw new Error('You do not have receptionist access.');
+        if (!s.org_id) throw new Error('Your account has no clinic assigned. Contact your clinic admin.');
+        return s;
       });
     }
 
     function fetchDoctors(orgId) {
-      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/staff?org_id=eq.' + orgId + '&role=eq.doctor&is_active=eq.true&select=id,full_name,specialty', {
+      return CB.authedFetch(REST + 'staff?org_id=eq.' + orgId + '&role=eq.doctor&is_active=eq.true&select=id,full_name,specialty&order=full_name.asc', {
         headers: authHeaders
       }).then(CB.safeJson);
     }
 
     function fetchTodayAppointments(orgId) {
-      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/appointments?org_id=eq.' + orgId +
-        '&select=id,patient_name,patient_phone,status,queue_number,staff_id,schedules(slot_date,start_time,end_time),staff!appointments_staff_id_fkey(full_name,specialty)'  +
-        '&schedules.slot_date=eq.' + today,
-        { headers: authHeaders }
+      return CB.authedFetch(REST + 'appointments?org_id=eq.' + orgId +
+        '&select=id,patient_name,patient_phone,status,queue_number,staff_id,schedules!inner(slot_date,start_time,end_time),staff!appointments_staff_id_fkey(full_name,specialty)' +
+        '&schedules.slot_date=eq.' + today, { headers: authHeaders }
       ).then(CB.safeJson).then(function(rows) {
         return rows.filter(function(r) { return r.schedules && r.schedules.slot_date === today; });
       });
     }
 
-    function updateStatus(appointmentId, newStatus, btnGroup) {
+    function updateStatus(id, newStatus, btnGroup) {
       var btns = btnGroup.querySelectorAll('.action-btn');
       btns.forEach(function(b) { b.disabled = true; });
-      CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/appointments?id=eq.' + appointmentId, {
+      CB.authedFetch(REST + 'appointments?id=eq.' + id + '&org_id=eq.' + myOrgId, {
         method: 'PATCH', headers: authHeaders, body: JSON.stringify({ status: newStatus })
       }).then(CB.safeJson).then(function() {
         loadToday();
@@ -344,87 +317,48 @@
       var container = document.getElementById('todayContainer');
       container.innerHTML = '';
 
-      var pending = appointments.filter(function(a) { return a.status === 'pending'; }).length;
-      var confirmed = appointments.filter(function(a) { return a.status === 'confirmed'; }).length;
-      document.getElementById('statPending').textContent = pending;
-      document.getElementById('statConfirmed').textContent = confirmed;
+      document.getElementById('statPending').textContent = appointments.filter(function(a) { return a.status === 'pending'; }).length;
+      document.getElementById('statConfirmed').textContent = appointments.filter(function(a) { return a.status === 'confirmed'; }).length;
 
-      if (!appointments.length) {
-        container.innerHTML = '<div class="empty"><p>No appointments scheduled for today.</p></div>';
-        return;
-      }
+      if (!appointments.length) { setMsg(container, 'No appointments scheduled for today.'); return; }
 
-      var byDoctor = {};
-      var doctorOrder = [];
+      var byDoctor = {}, order = [];
       appointments.forEach(function(a) {
-        var docId = a.staff_id;
-        if (!byDoctor[docId]) { byDoctor[docId] = { doctor: a.staff, appts: [] }; doctorOrder.push(docId); }
-        byDoctor[docId].appts.push(a);
+        if (!byDoctor[a.staff_id]) { byDoctor[a.staff_id] = { doctor: a.staff, appts: [] }; order.push(a.staff_id); }
+        byDoctor[a.staff_id].appts.push(a);
       });
 
-      doctorOrder.forEach(function(docId) {
-        var group = byDoctor[docId];
-        var groupEl = document.createElement('div');
-        groupEl.className = 'doctor-group';
-
-        var header = document.createElement('div');
-        header.className = 'doctor-header';
-        var avatar = document.createElement('div');
-        avatar.className = 'doctor-avatar';
-        avatar.textContent = getInitials(group.doctor ? group.doctor.full_name : '?');
-        var nameWrap = document.createElement('div');
-        var name = document.createElement('div');
-        name.className = 'doctor-name';
-        name.textContent = group.doctor ? group.doctor.full_name : 'Unknown doctor';
-        var specialty = document.createElement('div');
-        specialty.className = 'doctor-specialty';
-        specialty.textContent = group.doctor ? group.doctor.specialty : '';
-        nameWrap.appendChild(name);
-        nameWrap.appendChild(specialty);
-        header.appendChild(avatar);
+      order.forEach(function(id) {
+        var group = byDoctor[id];
+        var groupEl = el('div', 'doctor-group');
+        var header = el('div', 'doctor-header');
+        header.appendChild(el('div', 'doctor-avatar', getInitials(group.doctor ? group.doctor.full_name : '?')));
+        var nameWrap = el('div');
+        nameWrap.appendChild(el('div', 'doctor-name', group.doctor ? group.doctor.full_name : 'Unknown doctor'));
+        nameWrap.appendChild(el('div', 'doctor-specialty', group.doctor && group.doctor.specialty ? group.doctor.specialty : ''));
         header.appendChild(nameWrap);
         groupEl.appendChild(header);
 
-        group.appts.sort(function(a, b) { return (a.queue_number || 0) - (b.queue_number || 0); });
+        group.appts.sort(function(a, b) {
+          return (a.queue_number || 0) - (b.queue_number || 0) || (a.schedules.start_time > b.schedules.start_time ? 1 : -1);
+        });
 
         group.appts.forEach(function(a) {
-          var card = document.createElement('div');
-          card.className = 'appt-card ' + a.status;
-
-          var top = document.createElement('div');
-          top.className = 'appt-top';
-          var info = document.createElement('div');
-          var pname = document.createElement('div');
-          pname.className = 'appt-patient';
-          pname.textContent = (a.queue_number ? '#' + a.queue_number + ' ' : '') + a.patient_name;
-          var time = document.createElement('div');
-          time.className = 'appt-time';
-          time.textContent = a.schedules ? formatTime(a.schedules.start_time) + ' - ' + formatTime(a.schedules.end_time) : '';
-          var phone = document.createElement('div');
-          phone.className = 'appt-phone';
-          phone.textContent = a.patient_phone;
-          info.appendChild(pname);
-          info.appendChild(time);
-          info.appendChild(phone);
-
-          var badge = document.createElement('span');
-          badge.className = 'status-badge ' + a.status;
-          badge.textContent = a.status;
-
+          var card = el('div', 'appt-card ' + a.status);
+          var top = el('div', 'appt-top');
+          var info = el('div');
+          info.appendChild(el('div', 'appt-patient', (a.queue_number ? '#' + a.queue_number + ' ' : '') + a.patient_name));
+          info.appendChild(el('div', 'appt-time', formatTime(a.schedules.start_time) + ' - ' + formatTime(a.schedules.end_time)));
+          info.appendChild(el('div', 'appt-phone', a.patient_phone));
           top.appendChild(info);
-          top.appendChild(badge);
+          top.appendChild(el('span', 'status-badge ' + a.status, a.status));
           card.appendChild(top);
 
           if (a.status === 'pending') {
-            var actions = document.createElement('div');
-            actions.className = 'appt-actions';
-            var confirmBtn = document.createElement('button');
-            confirmBtn.className = 'action-btn confirm';
-            confirmBtn.textContent = 'Confirm';
+            var actions = el('div', 'appt-actions');
+            var confirmBtn = el('button', 'action-btn confirm', 'Confirm');
             confirmBtn.addEventListener('click', function() { updateStatus(a.id, 'confirmed', actions); });
-            var cancelBtn = document.createElement('button');
-            cancelBtn.className = 'action-btn cancel';
-            cancelBtn.textContent = 'Cancel';
+            var cancelBtn = el('button', 'action-btn cancel', 'Cancel');
             cancelBtn.addEventListener('click', function() {
               if (confirm('Cancel appointment for ' + a.patient_name + '?')) updateStatus(a.id, 'cancelled', actions);
             });
@@ -432,10 +366,8 @@
             actions.appendChild(cancelBtn);
             card.appendChild(actions);
           }
-
           groupEl.appendChild(card);
         });
-
         container.appendChild(groupEl);
       });
     }
@@ -447,67 +379,70 @@
       });
     }
 
+    // ---- Booking ----
     function populateDoctorSelect(doctors) {
       var select = document.getElementById('doctorSelect');
-      select.innerHTML = '<option value="">Choose a doctor...</option>';
+      select.innerHTML = '';
+      var first = el('option', null, doctors.length ? 'Choose a doctor...' : 'No active doctors yet');
+      first.value = '';
+      select.appendChild(first);
       doctors.forEach(function(d) {
-        var opt = document.createElement('option');
+        var opt = el('option', null, d.full_name + (d.specialty ? ' \u2014 ' + d.specialty : ''));
         opt.value = d.id;
-        opt.textContent = d.full_name + (d.specialty ? ' \u2014 ' + d.specialty : '');
         select.appendChild(opt);
       });
       document.getElementById('statDoctors').textContent = doctors.length;
     }
 
     function fetchDoctorSlots(staffId) {
-      return CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/schedules?staff_id=eq.' + staffId + '&slot_date=gte.' + today + '&is_cancelled=eq.false&select=id,slot_date,start_time,end_time,max_capacity,booked_count&order=slot_date.asc,start_time.asc', {
+      return CB.authedFetch(REST + 'schedules?staff_id=eq.' + staffId + '&slot_date=gte.' + today + '&is_cancelled=eq.false&select=id,slot_date,start_time,end_time,max_capacity,booked_count&order=slot_date.asc,start_time.asc', {
         headers: authHeaders
       }).then(CB.safeJson);
     }
 
-    document.getElementById('doctorSelect').addEventListener('change', function() {
-      var staffId = this.value;
-      selectedSlot = null;
-      updateBookButton();
+    function loadSlots(staffId) {
       var pickerGroup = document.getElementById('slotPickerGroup');
       var picker = document.getElementById('slotPicker');
-
-      if (!staffId) { pickerGroup.style.display = 'none'; return; }
+      selectedSlot = null;
+      updateBookButton();
+      if (!staffId) { pickerGroup.style.display = 'none'; return Promise.resolve(); }
 
       picker.innerHTML = '<div class="skel" style="height:60px;border-radius:8px;"></div>';
       pickerGroup.style.display = 'block';
 
-      fetchDoctorSlots(staffId).then(function(slots) {
+      return fetchDoctorSlots(staffId).then(function(slots) {
+        var nowTime = new Date().toTimeString().slice(0, 8);
+        slots = slots.filter(function(s) { return s.slot_date > today || s.start_time > nowTime; });
+        if (!slots.length) { setMsg(picker, 'No upcoming slots for this doctor.'); return; }
+
         picker.innerHTML = '';
-        if (!slots.length) {
-          picker.innerHTML = '<div class="empty"><p>No upcoming slots for this doctor.</p></div>';
-          return;
-        }
-        var grid = document.createElement('div');
-        grid.className = 'slot-grid';
+        var grid = null, lastDate = null;
         slots.forEach(function(slot) {
-          var isFull = slot.booked_count >= slot.max_capacity;
-          var btn = document.createElement('button');
-          btn.className = 'slot-btn' + (isFull ? ' full' : '');
-          btn.disabled = isFull;
-          btn.textContent = formatTime(slot.start_time);
-          btn.title = slot.slot_date;
-          if (!isFull) {
-            btn.addEventListener('click', function() {
-              document.querySelectorAll('.slot-btn').forEach(function(b) { b.classList.remove('selected'); });
-              btn.classList.add('selected');
-              selectedSlot = slot;
-              updateBookButton();
-            });
+          if (slot.slot_date !== lastDate) {
+            picker.appendChild(el('div', 'slot-date', dateLabel(slot.slot_date)));
+            grid = el('div', 'slot-grid');
+            picker.appendChild(grid);
+            lastDate = slot.slot_date;
           }
+          var left = slot.max_capacity - slot.booked_count;
+          var btn = el('button', 'slot-btn', formatTime(slot.start_time));
+          btn.type = 'button';
+          btn.appendChild(el('small', null, left > 0 ? left + ' left' : 'Full'));
+          btn.disabled = left <= 0;
+          btn.addEventListener('click', function() {
+            document.querySelectorAll('.slot-btn').forEach(function(b) { b.classList.remove('selected'); });
+            btn.classList.add('selected');
+            selectedSlot = slot;
+            updateBookButton();
+          });
           grid.appendChild(btn);
         });
-        picker.appendChild(grid);
       }).catch(function(err) {
         if (err.message === 'SESSION_EXPIRED') return;
-        picker.innerHTML = '<div class="empty"><p>Could not load slots: ' + err.message + '</p></div>';
+        setMsg(picker, 'Could not load slots: ' + err.message);
       });
-    });
+    }
+    document.getElementById('doctorSelect').addEventListener('change', function() { loadSlots(this.value); });
 
     function updateBookButton() {
       var btn = document.getElementById('bookSubmitBtn');
@@ -517,100 +452,88 @@
 
     document.getElementById('bookSubmitBtn').addEventListener('click', function() {
       var name = document.getElementById('bookPatientName').value.trim();
-      var phone = document.getElementById('bookPatientPhone').value.trim();
+      var phone = normalizePhone(document.getElementById('bookPatientPhone').value.trim());
       var reason = document.getElementById('bookReason').value.trim();
       var doctorId = document.getElementById('doctorSelect').value;
       var btn = this;
 
-      if (!name) { showBookError('Please enter the patient\'s name.'); return; }
-      if (!phone) { showBookError('Please enter the patient\'s phone number.'); return; }
-      if (!selectedSlot) { showBookError('Please select a slot.'); return; }
+      if (!name) { showBookError('Enter the patient\'s name.'); return; }
+      if (!/^\+?\d{7,15}$/.test(phone)) { showBookError('Enter a valid phone number, including country code.'); return; }
+      if (!selectedSlot || !allDoctors.some(function(d) { return d.id === doctorId; })) { showBookError('Choose a doctor and a slot.'); return; }
 
+      var slot = selectedSlot;
       btn.disabled = true; btn.textContent = 'Booking...';
 
-      CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/appointments', {
-        method: 'POST', headers: authHeaders,
-        body: JSON.stringify({
-          schedule_id: selectedSlot.id, staff_id: doctorId, org_id: myOrgId,
-          booked_by_staff_id: myStaffId, patient_name: name, patient_phone: phone,
-          patient_reason: reason || null, status: 'confirmed', source: 'receptionist'
-        })
-      }).then(CB.safeJson).then(function() {
-        showBookSuccess('Appointment booked for ' + name + '.');
-        document.getElementById('bookPatientName').value = '';
-        document.getElementById('bookPatientPhone').value = '';
-        document.getElementById('bookReason').value = '';
-        document.getElementById('doctorSelect').value = '';
-        document.getElementById('slotPickerGroup').style.display = 'none';
-        selectedSlot = null;
-        loadToday();
-      }).catch(function(err) {
-        if (err.message === 'SESSION_EXPIRED') return;
-        showBookError('Booking failed: ' + err.message);
-      }).finally(function() {
-        btn.disabled = false;
-        updateBookButton();
-      });
+      // Re-check capacity right before booking (another receptionist or the WhatsApp bot may have taken it)
+      CB.authedFetch(REST + 'schedules?id=eq.' + slot.id + '&select=booked_count,max_capacity,is_cancelled', { headers: authHeaders })
+        .then(CB.safeJson).then(function(rows) {
+          var s = rows[0];
+          if (!s || s.is_cancelled) throw new Error('This slot is no longer available.');
+          if (s.booked_count >= s.max_capacity) throw new Error('This slot just filled up. Pick another.');
+          return CB.authedFetch(REST + 'appointments', {
+            method: 'POST', headers: authHeaders,
+            body: JSON.stringify({
+              schedule_id: slot.id, staff_id: doctorId, org_id: myOrgId,
+              booked_by_staff_id: myStaffId, patient_name: name, patient_phone: phone,
+              patient_reason: reason || null, status: 'confirmed', source: 'receptionist'
+            })
+          }).then(CB.safeJson);
+        }).then(function() {
+          showBookSuccess('Appointment booked for ' + name + '.');
+          document.getElementById('bookPatientName').value = '';
+          document.getElementById('bookPatientPhone').value = '';
+          document.getElementById('bookReason').value = '';
+          loadToday();
+        }).catch(function(err) {
+          if (err.message === 'SESSION_EXPIRED') return;
+          showBookError('Booking failed: ' + err.message);
+        }).finally(function() {
+          loadSlots(doctorId); // refresh remaining capacity, clears selection
+        });
     });
 
     function showBookSuccess(msg) {
-      var el = document.getElementById('bookSuccessToast');
-      el.textContent = msg; el.style.display = 'block';
+      var t = document.getElementById('bookSuccessToast');
+      t.textContent = msg; t.style.display = 'block';
       document.getElementById('bookErrorToast').style.display = 'none';
-      setTimeout(function() { el.style.display = 'none'; }, 4000);
+      setTimeout(function() { t.style.display = 'none'; }, 4000);
     }
     function showBookError(msg) {
-      var el = document.getElementById('bookErrorToast');
-      el.textContent = msg; el.style.display = 'block';
+      var t = document.getElementById('bookErrorToast');
+      t.textContent = msg; t.style.display = 'block';
       document.getElementById('bookSuccessToast').style.display = 'none';
     }
 
+    // ---- Patient search (spaces/dashes ignored, partial match) ----
     function searchPatient() {
-      var phone = document.getElementById('patientSearchInput').value.trim();
+      var digits = normalizePhone(document.getElementById('patientSearchInput').value).replace(/^\+/, '').replace(/^0+/, '');
       var container = document.getElementById('searchResultsContainer');
-      if (!phone) return;
+      if (digits.length < 5) { setMsg(container, 'Enter at least 5 digits of the phone number.'); return; }
 
       container.innerHTML = '<div class="skel" style="height:60px;border-radius:12px;"></div>';
 
-      CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/appointments?patient_phone=eq.' + encodeURIComponent(phone) + '&org_id=eq.' + myOrgId +
-        '&select=id,patient_name,patient_reason,status,queue_number,schedules(slot_date,start_time,end_time),staff!appointments_staff_id_fkey(full_name,specialty)'  +
-        '&order=created_at.desc',
-        { headers: authHeaders }
+      CB.authedFetch(REST + 'appointments?patient_phone=ilike.*' + encodeURIComponent(digits) + '*&org_id=eq.' + myOrgId +
+        '&select=id,patient_name,patient_phone,patient_reason,status,schedules(slot_date,start_time),staff!appointments_staff_id_fkey(full_name)' +
+        '&order=created_at.desc&limit=30', { headers: authHeaders }
       ).then(CB.safeJson).then(function(appts) {
+        if (!appts.length) { setMsg(container, 'No appointments found for this number.'); return; }
         container.innerHTML = '';
-        if (!appts.length) {
-          container.innerHTML = '<div class="empty"><p>No appointments found for this number.</p></div>';
-          return;
-        }
         appts.forEach(function(a) {
-          var card = document.createElement('div');
-          card.className = 'appt-card ' + a.status;
-          var top = document.createElement('div');
-          top.className = 'appt-top';
-          var info = document.createElement('div');
-          var pname = document.createElement('div');
-          pname.className = 'appt-patient';
-          pname.textContent = a.patient_name;
-          var doc = document.createElement('div');
-          doc.className = 'appt-time';
-          doc.textContent = a.staff ? a.staff.full_name : '';
-          var slotInfo = document.createElement('div');
-          slotInfo.className = 'appt-phone';
-          slotInfo.textContent = a.schedules ? a.schedules.slot_date + ' \u2014 ' + formatTime(a.schedules.start_time) : '';
-          info.appendChild(pname);
-          info.appendChild(doc);
-          info.appendChild(slotInfo);
-          var badge = document.createElement('span');
-          badge.className = 'status-badge ' + a.status;
-          badge.textContent = a.status;
+          var card = el('div', 'appt-card ' + a.status);
+          var top = el('div', 'appt-top');
+          var info = el('div');
+          info.appendChild(el('div', 'appt-patient', a.patient_name));
+          info.appendChild(el('div', 'appt-time', a.staff ? a.staff.full_name : ''));
+          info.appendChild(el('div', 'appt-phone', (a.schedules ? dateLabel(a.schedules.slot_date) + ' \u2014 ' + formatTime(a.schedules.start_time) : '') + ' \u00b7 ' + a.patient_phone));
+          if (a.patient_reason) info.appendChild(el('div', 'appt-phone', a.patient_reason));
           top.appendChild(info);
-          top.appendChild(badge);
+          top.appendChild(el('span', 'status-badge ' + a.status, a.status));
           card.appendChild(top);
           container.appendChild(card);
         });
       }).catch(function(err) {
         if (err.message === 'SESSION_EXPIRED') return;
-        container.innerHTML = '<div class="empty"><p>Search failed: ' + err.message + '</p></div>';
+        setMsg(container, 'Search failed: ' + err.message);
       });
     }
     document.getElementById('patientSearchBtn').addEventListener('click', searchPatient);
@@ -619,26 +542,47 @@
     document.getElementById('logoutBtn').addEventListener('click', function() { CB.logout(); });
 
     function showErrorBox(msg) {
-      var el = document.getElementById('errorBox');
-      el.textContent = msg; el.style.display = 'block';
+      var box = document.getElementById('errorBox');
+      box.textContent = msg;
+      var out = el('button', null, 'Sign out');
+      out.addEventListener('click', function() { CB.logout(); });
+      box.appendChild(out);
+      box.style.display = 'block';
     }
 
+    // ---- First landing after accepting an invite (accept-invite.html redirects here with ?welcome=1) ----
+    (function() {
+      var params = new URLSearchParams(location.search);
+      if (params.get('welcome') === '1') {
+        document.getElementById('welcomeBanner').style.display = 'flex';
+        history.replaceState(null, '', location.pathname);
+      }
+      document.getElementById('bannerClose').addEventListener('click', function() {
+        document.getElementById('welcomeBanner').style.display = 'none';
+      });
+    })();
+
+    // ---- Boot ----
     if (session) {
       fetchMyStaff().then(function(staff) {
         myStaffId = staff.id;
         myOrgId = staff.org_id;
         document.getElementById('welcomeName').textContent = 'Welcome, ' + staff.full_name;
         document.getElementById('welcomeSub').textContent = 'Receptionist';
-
         return fetchDoctors(myOrgId);
       }).then(function(doctors) {
         allDoctors = doctors;
         populateDoctorSelect(doctors);
         loadToday();
-        CB.fetchFrontDeskBadgeCount(myOrgId).then(function(count) { CB.setNavBadge('frontdesk', count); });
-        CB.fetchActivityBadgeCount(myOrgId, today).then(function(count) { CB.setNavBadge('activity', count); });
+        CB.fetchFrontDeskBadgeCount(myOrgId).then(function(c) { CB.setNavBadge('frontdesk', c); });
+        CB.fetchActivityBadgeCount(myOrgId, today).then(function(c) { CB.setNavBadge('activity', c); });
+
+        // Keep the list fresh: WhatsApp bookings arrive as pending while the page is open
+        setInterval(function() { if (!document.hidden) loadToday(); }, 60000);
+        document.addEventListener('visibilitychange', function() { if (!document.hidden) loadToday(); });
       }).catch(function(err) {
         if (err.message !== 'SESSION_EXPIRED') {
+          document.getElementById('welcomeName').textContent = 'Access problem';
           showErrorBox(err.message);
           console.error(err);
         }
