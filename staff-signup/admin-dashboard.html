@@ -614,20 +614,40 @@
       var btn = document.getElementById('sendInviteBtn');
       btn.disabled = true;
 
+      var chosenRole = roleSelect.value;
+      // return=representation so we get the generated token back and can
+      // hand it straight to send-invite-email — no second lookup needed.
+      var insertHeaders = Object.assign({}, authHeaders, { 'Prefer': 'return=representation' });
+
       CB.authedFetch(CB.SUPABASE_URL + '/rest/v1/invites', {
-        method: 'POST', headers: authHeaders,
+        method: 'POST', headers: insertHeaders,
         body: JSON.stringify({
           org_id: myOrgId,
           email: email,
-          role: roleSelect.value,
+          role: chosenRole,
           department_id: deptSelect.value || null,
           invited_by: myStaffId,
           status: 'pending'
         })
-      }).then(CB.safeJson).then(function() {
+      }).then(CB.safeJson).then(function(rows) {
+        var newInvite = rows && rows[0];
         emailInput.value = '';
-        showToast('Invite sent to ' + email + '.');
         loadAll();
+
+        if (!newInvite || !newInvite.token) {
+          showToast('Invite created, but no token came back — email not sent.');
+          return;
+        }
+
+        return CB.authedFetch(CB.SUPABASE_URL + '/functions/v1/send-invite-email', {
+          method: 'POST', headers: authHeaders,
+          body: JSON.stringify({ email: email, token: newInvite.token, role: chosenRole })
+        }).then(CB.safeJson).then(function() {
+          showToast('Invite sent to ' + email + '.');
+        }).catch(function(err) {
+          if (err.message === 'SESSION_EXPIRED') return;
+          showToast('Invite saved, but the email failed to send: ' + err.message);
+        });
       }).catch(function(err) {
         if (err.message === 'SESSION_EXPIRED') return;
         showErrorBox('Could not send invite: ' + err.message);
