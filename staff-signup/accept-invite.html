@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ClinicBook Pro — Accept Invite</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FAF9F5; color: #1F2937; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { width: 100%; max-width: 380px; background: #fff; border: 1px solid #EEEDE9; border-radius: 20px; padding: 40px 32px; box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 16px 40px rgba(31,29,23,.08); display: flex; flex-direction: column; gap: 20px; }
+    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 999px; background: #ECFDF5; color: #047857; font-size: 13px; font-weight: 700; text-transform: capitalize; }
+    .label { display: block; font-size: 13px; font-weight: 600; color: #44403C; margin-bottom: 6px; }
+    .input { width: 100%; box-sizing: border-box; padding: 12px 14px; border: 1px solid #D6D3CE; border-radius: 10px; font-size: 15px; background: #fff; }
+    .input:focus { outline: none; border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,.12); }
+    .input:disabled { background: #F5F4F1; color: #78716C; }
+    .btn-primary { width: 100%; padding: 13px; border-radius: 10px; background: #059669; color: #fff; font-size: 15px; font-weight: 600; border: none; cursor: pointer; box-shadow: 0 2px 8px rgba(5,150,105,.28); }
+    .btn-primary:disabled { background: #A8A29E; cursor: not-allowed; box-shadow: none; }
+    .field-wrap { position: relative; }
+    .eye-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 6px; }
+    .error-box { background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #991B1B; display: none; }
+    .hidden { display: none; }
+    .center { text-align: center; }
+    .muted { font-size: 13px; color: #78716C; }
+  </style>
+</head>
+<body>
+
+  <div class="card" id="card">
+    <div class="center muted" id="loadingState">Checking your invite…</div>
+  </div>
+
+  <script>
+    // If session.js already exposes these as plain constants (not gated
+    // behind a signed-in session), delete these two lines and use
+    // CB.SUPABASE_URL / CB.SUPABASE_ANON_KEY instead.
+    var SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
+    var SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
+
+    var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    var params = new URLSearchParams(window.location.search);
+    var token = params.get('token');
+    var card = document.getElementById('card');
+    var invite = null;
+
+    var dashboardByRole = {
+      director: 'admin-dashboard.html',
+      admin: 'admin-dashboard.html',
+      doctor: 'doctor-dashboard.html',
+      receptionist: 'front-desk.html'
+    };
+
+    function showError(msg) {
+      card.innerHTML =
+        '<div class="center" style="font-size:18px;font-weight:700">This invite link isn\'t valid</div>' +
+        '<div class="error-box" style="display:block">' + msg + '</div>' +
+        '<div class="center muted">Ask your organization\'s admin to send a new invite.</div>';
+    }
+
+    function renderStep1() {
+      card.innerHTML =
+        '<div class="center" style="display:flex;flex-direction:column;align-items:center;gap:10px">' +
+        '<div style="font-size:18px;font-weight:700">You\'ve been invited</div>' +
+        '<div class="muted">' + invite.org_name + ' has invited you to join as</div>' +
+        '<span class="badge">' + invite.role + '</span>' +
+        '</div>' +
+        '<div>' +
+        '<label class="label">Email</label>' +
+        '<input class="input" value="' + invite.email + '" disabled>' +
+        '</div>' +
+        '<button class="btn-primary" id="acceptBtn">Accept &amp; continue</button>';
+
+      document.getElementById('acceptBtn').addEventListener('click', renderStep2);
+    }
+
+    function togglePasswordField(inputId, btn) {
+      var input = document.getElementById(inputId);
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    function renderStep2() {
+      card.innerHTML =
+        '<div class="center" style="font-size:18px;font-weight:700">Set up your account</div>' +
+        '<div>' +
+        '<label class="label" for="fullName">Full name</label>' +
+        '<input class="input" id="fullName" type="text" placeholder="Jane Mwikali">' +
+        '</div>' +
+        '<div>' +
+        '<label class="label" for="p1">Password</label>' +
+        '<div class="field-wrap">' +
+        '<input class="input" id="p1" type="password" placeholder="••••••••" style="padding-right:44px">' +
+        '<button class="eye-btn" type="button" id="toggleP1" aria-label="Show password">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>' +
+        '</button></div></div>' +
+        '<div>' +
+        '<label class="label" for="p2">Confirm password</label>' +
+        '<div class="field-wrap">' +
+        '<input class="input" id="p2" type="password" placeholder="••••••••" style="padding-right:44px">' +
+        '<button class="eye-btn" type="button" id="toggleP2" aria-label="Show password">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>' +
+        '</button></div></div>' +
+        '<div class="error-box" id="step2Error"></div>' +
+        '<button class="btn-primary" id="createBtn">Create account</button>';
+
+      document.getElementById('toggleP1').addEventListener('click', function() { togglePasswordField('p1'); });
+      document.getElementById('toggleP2').addEventListener('click', function() { togglePasswordField('p2'); });
+      document.getElementById('createBtn').addEventListener('click', submitAccount);
+    }
+
+    function submitAccount() {
+      var fullName = document.getElementById('fullName').value.trim();
+      var p1 = document.getElementById('p1').value;
+      var p2 = document.getElementById('p2').value;
+      var errBox = document.getElementById('step2Error');
+      var btn = document.getElementById('createBtn');
+
+      errBox.style.display = 'none';
+
+      if (!fullName) { errBox.textContent = 'Please enter your full name.'; errBox.style.display = 'block'; return; }
+      if (p1.length < 8) { errBox.textContent = 'Password must be at least 8 characters.'; errBox.style.display = 'block'; return; }
+      if (p1 !== p2) { errBox.textContent = 'Passwords don\'t match.'; errBox.style.display = 'block'; return; }
+
+      btn.disabled = true;
+      btn.textContent = 'Creating account…';
+
+      fetch(SUPABASE_URL + '/functions/v1/accept-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+        body: JSON.stringify({ token: token, full_name: fullName, password: p1 })
+      }).then(function(res) {
+        return res.json().then(function(data) { return { ok: res.ok, data: data }; });
+      }).then(function(result) {
+        if (!result.ok) {
+          throw new Error(result.data.error || 'Something went wrong.');
+        }
+        // Sign in immediately with the password they just set.
+        return sb.auth.signInWithPassword({ email: invite.email, password: p1 }).then(function() {
+          var dest = dashboardByRole[result.data.role] || 'admin-dashboard.html';
+          window.location.href = dest;
+        });
+      }).catch(function(err) {
+        errBox.textContent = err.message;
+        errBox.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Create account';
+      });
+    }
+
+    if (!token) {
+      showError('No invite token was found in this link.');
+    } else {
+      sb.rpc('get_invite_by_token', { p_token: token }).then(function(result) {
+        if (result.error || !result.data || !result.data.length) {
+          showError('This invite could not be found.');
+          return;
+        }
+        invite = result.data[0];
+        if (invite.status !== 'pending') {
+          showError('This invite has already been used or revoked.');
+          return;
+        }
+        if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+          showError('This invite has expired.');
+          return;
+        }
+        renderStep1();
+      }).catch(function() {
+        showError('Something went wrong loading this invite.');
+      });
+    }
+  </script>
+</body>
+</html>
