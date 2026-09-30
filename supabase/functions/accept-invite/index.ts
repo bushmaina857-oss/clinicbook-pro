@@ -5,6 +5,12 @@
 // role so the page can redirect. Needs the service-role key, so it runs here
 // and never in client-side JS.
 //
+// If an auth user with the invite's email already exists but has NO staff row
+// (e.g. they clicked "Continue with Google" on the login page before being
+// invited, or started signup and never finished), the invite adopts that
+// account: it sets the chosen password and creates the staff row. An account
+// that already has a staff row is never touched.
+//
 // Deploy WITHOUT JWT verification (the invitee has no session yet):
 //   supabase functions deploy accept-invite --no-verify-jwt
 
@@ -69,7 +75,7 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: 'This invite has already been used or revoked.' }, 410);
   }
   if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
-    return jsonResponse({ error: 'This invite has expired. Ask your admin to send a new one.' }, 410);
+    return jsonResponse({ error: 'This invite has expired. Ask your director to send a new one.' }, 410);
   }
 
   // 2. Claim the invite atomically. Only one request can flip pending -> accepted,
@@ -93,29 +99,87 @@ Deno.serve(async (req: Request) => {
     await supabaseAdmin.from('invites').update({ status: 'pending' }).eq('id', invite.id);
   }
 
-  // 3. Create the auth user (email pre-confirmed: it came from an admin's invite).
+  // Finds an existing auth user by email (case-insensitive). The admin API has
+  // no direct lookup-by-email, so this pages through the user list. Capped so
+  // it can never loop forever; fine at clinic-SaaS scale.
+  async function findAuthUserByEmail(email: string) {
+    const target = email.toLowerCase();
+    const perPage = 1000;
+    for (let page = 1; page <= 20; page++) {
+      const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+      if (error) return null;
+      const match = data.users.find((u) => (u.email ?? '').toLowerCase() === target);
+      if (match) return match;
+      if (data.users.length < perPage) return null;
+    }
+    return null;
+  }
+
+  // 3. Create the auth user (email pre-confirmed: it came from a director's invite),
+  //    or adopt an existing staff-less account with the same email.
+  let userId: string;
+  let createdNow = false;
+
   const createResult = await supabaseAdmin.auth.admin.createUser({
     email: invite.email,
     password,
     email_confirm: true,
   });
 
-  if (createResult.error || !createResult.data.user) {
-    await releaseInvite();
+  if (!createResult.error && createResult.data.user) {
+    userId = createResult.data.user.id;
+    createdNow = true;
+  } else {
     const code = createResult.error?.code;
     const raw = createResult.error?.message ?? '';
-    if (code === 'email_exists' || /already.*(registered|exists)/i.test(raw)) {
+    const emailExists = code === 'email_exists' || /already.*(registered|exists)/i.test(raw);
+
+    if (!emailExists) {
+      await releaseInvite();
+      return jsonResponse({ error: raw || 'Could not create account.' }, 400);
+    }
+
+    const existing = await findAuthUserByEmail(invite.email);
+    if (!existing) {
+      await releaseInvite();
       return jsonResponse({
-        error: 'An account with this email already exists. Try signing in, or ask your admin for help.',
+        error: 'An account with this email already exists. Try signing in, or ask your director for help.',
       }, 409);
     }
-    return jsonResponse({ error: raw || 'Could not create account.' }, 400);
+
+    // Never touch an account that already belongs to a staff member.
+    const existingStaff = await supabaseAdmin
+      .from('staff')
+      .select('id')
+      .eq('user_id', existing.id)
+      .limit(1);
+
+    if (existingStaff.error) {
+      await releaseInvite();
+      return jsonResponse({ error: 'Could not process this invite. Please try again.' }, 500);
+    }
+    if (existingStaff.data && existingStaff.data.length > 0) {
+      await releaseInvite();
+      return jsonResponse({
+        error: 'An account with this email already exists. Try signing in, or ask your director for help.',
+      }, 409);
+    }
+
+    // Staff-less account (e.g. a Google sign-in made before the invite): adopt it.
+    const updateResult = await supabaseAdmin.auth.admin.updateUserById(existing.id, {
+      password,
+      email_confirm: true,
+    });
+    if (updateResult.error) {
+      await releaseInvite();
+      return jsonResponse({ error: updateResult.error.message || 'Could not set your password.' }, 400);
+    }
+    userId = existing.id;
   }
-  const newUser = createResult.data.user;
 
   // 4. Create the staff row from the invite's role/org/department.
   const staffResult = await supabaseAdmin.from('staff').insert({
-    user_id: newUser.id,
+    user_id: userId,
     org_id: invite.org_id,
     department_id: invite.department_id,
     role: invite.role,
@@ -124,8 +188,9 @@ Deno.serve(async (req: Request) => {
   });
 
   if (staffResult.error) {
-    // Roll back so a failed invite never leaves an orphaned login.
-    await supabaseAdmin.auth.admin.deleteUser(newUser.id);
+    // Roll back a login we created so a failed invite never leaves an orphan.
+    // An adopted account existed before this invite, so it is left in place.
+    if (createdNow) await supabaseAdmin.auth.admin.deleteUser(userId);
     await releaseInvite();
     return jsonResponse({ error: 'Could not finish setting up your account: ' + staffResult.error.message }, 500);
   }
