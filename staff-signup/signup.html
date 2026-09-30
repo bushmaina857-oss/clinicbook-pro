@@ -41,6 +41,8 @@
       font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.18s;
     }
     .path-tab.active { background: var(--teal); color: #fff; }
+    .path-tab:focus-visible, .submit-btn:focus-visible, .secondary-btn:focus-visible,
+    .google-btn:focus-visible, .pw-toggle:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
 
     .form-card {
       background: var(--white); border-radius: var(--radius);
@@ -65,6 +67,16 @@
     .form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color: var(--teal); background: #fff; }
     .form-group textarea { resize: none; height: 70px; }
     .form-hint { font-size: 12px; color: var(--muted); margin-top: 5px; line-height: 1.4; }
+
+    /* Password show/hide */
+    .pw-wrap { position: relative; }
+    .pw-wrap input { padding-right: 62px; }
+    .pw-toggle {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; padding: 8px 10px; border-radius: 8px;
+      font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+      color: var(--teal); cursor: pointer;
+    }
 
     .org-search-results {
       margin-top: 8px; border: 1.5px solid var(--border); border-radius: 10px;
@@ -98,6 +110,22 @@
     .secondary-btn:hover { border-color: var(--teal); color: var(--teal); }
     .secondary-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+    /* Google button */
+    .divider {
+      display: flex; align-items: center; gap: 12px; margin: 18px 0 14px;
+      font-size: 12px; color: var(--muted);
+    }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .google-btn {
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 12px; border-radius: 10px; border: 1.5px solid var(--border);
+      background: var(--white); color: var(--text); font-size: 14px; font-weight: 600;
+      font-family: 'Inter', sans-serif; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    }
+    .google-btn:hover { border-color: var(--teal); background: var(--bg); }
+    .google-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .google-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+
     .error-msg {
       background: #FEE2E2; border: 1.5px solid #FCA5A5; border-radius: 10px;
       padding: 12px 14px; font-size: 13px; color: #991B1B;
@@ -111,6 +139,7 @@
     .success-icon { font-size: 36px; margin-bottom: 10px; }
     .success-box h3 { font-size: 17px; color: #15803D; margin-bottom: 8px; }
     .success-box p { font-size: 13px; color: #16A34A; line-height: 1.6; }
+    .success-box a { display: inline-block; margin-top: 14px; color: var(--teal); font-weight: 600; font-size: 13px; text-decoration: none; }
 
     .login-link { text-align: center; margin-top: 18px; font-size: 13px; color: var(--muted); }
     .login-link a { color: var(--teal); font-weight: 600; text-decoration: none; }
@@ -120,7 +149,7 @@
       border-radius: 50px; text-transform: uppercase; letter-spacing: 0.05em;
       margin-bottom: 12px;
     }
-    .role-badge.admin { background: var(--teal-light); color: var(--teal); }
+    .role-badge.director { background: var(--teal-light); color: var(--teal); }
     .role-badge.doctor { background: #FEF3C7; color: #D97706; }
 
     /* OTP INPUT */
@@ -156,30 +185,33 @@
 
     <!-- CREATE ORG FORM -->
     <div class="form-card visible" id="createForm">
-      <span class="role-badge admin">You'll be the Admin</span>
+      <span class="role-badge director">You'll be the Director</span>
       <div class="form-card-title">Set up your organization</div>
       <div class="form-card-sub">For a solo practice, just use your own name as the organization name. For a clinic or hospital, use its official name.</div>
 
       <div class="error-msg" id="createError"></div>
 
       <div class="form-group">
-        <label>Your Email</label>
-        <input type="email" id="createEmail" placeholder="you@example.com" />
+        <label for="createEmail">Your Email</label>
+        <input type="email" id="createEmail" placeholder="you@example.com" autocomplete="email" />
       </div>
       <div class="form-group">
-        <label>Password</label>
-        <input type="password" id="createPassword" placeholder="Create a password" />
+        <label for="createPassword">Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="createPassword" placeholder="Create a password" autocomplete="new-password" />
+          <button type="button" class="pw-toggle" data-target="createPassword" aria-label="Show password">Show</button>
+        </div>
       </div>
       <div class="form-group">
-        <label>Your Full Name</label>
+        <label for="createFullName">Your Full Name</label>
         <input type="text" id="createFullName" placeholder="Dr. Jane Smith" />
       </div>
       <div class="form-group">
-        <label>Organization Name</label>
+        <label for="orgName">Organization Name</label>
         <input type="text" id="orgName" placeholder="e.g. Sunrise Medical Centre" />
       </div>
       <div class="form-group">
-        <label>Organization Type</label>
+        <label for="orgType">Organization Type</label>
         <select id="orgType">
           <option value="solo">Solo Practice (just me)</option>
           <option value="clinic">Clinic (a few doctors)</option>
@@ -187,11 +219,18 @@
         </select>
       </div>
       <div class="form-group">
-        <label>Phone Number</label>
+        <label for="orgPhone">Phone Number</label>
         <input type="tel" id="orgPhone" placeholder="e.g. +213 555 000 111" />
       </div>
 
       <button class="submit-btn" id="createBtn">Create Organization & Sign Up</button>
+
+      <div class="divider">or</div>
+      <button type="button" class="google-btn" id="createGoogleBtn">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+      <div class="form-hint" style="text-align:center;">Fill in your name and organization details above first. Email and password aren't needed with Google.</div>
     </div>
 
     <!-- JOIN ORG FORM -->
@@ -203,46 +242,56 @@
       <div class="error-msg" id="joinError"></div>
 
       <div class="form-group">
-        <label>Search Organization</label>
-        <input type="text" id="orgSearchInput" placeholder="Type clinic or hospital name..." />
+        <label for="orgSearchInput">Search Organization</label>
+        <input type="text" id="orgSearchInput" placeholder="Type clinic or hospital name..." autocomplete="off" />
         <div class="org-search-results" id="orgResults"></div>
         <div class="form-hint" id="selectedOrgHint"></div>
       </div>
 
       <div class="form-group">
-        <label>Your Email</label>
-        <input type="email" id="joinEmail" placeholder="you@example.com" />
+        <label for="joinEmail">Your Email</label>
+        <input type="email" id="joinEmail" placeholder="you@example.com" autocomplete="email" />
       </div>
       <div class="form-group">
-        <label>Password</label>
-        <input type="password" id="joinPassword" placeholder="Create a password" />
+        <label for="joinPassword">Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="joinPassword" placeholder="Create a password" autocomplete="new-password" />
+          <button type="button" class="pw-toggle" data-target="joinPassword" aria-label="Show password">Show</button>
+        </div>
       </div>
       <div class="form-group">
-        <label>Your Full Name</label>
+        <label for="joinFullName">Your Full Name</label>
         <input type="text" id="joinFullName" placeholder="Dr. Jane Smith" />
       </div>
       <div class="form-group">
-        <label>Your Specialty</label>
+        <label for="joinSpecialty">Your Specialty</label>
         <input type="text" id="joinSpecialty" placeholder="e.g. Dermatologist, Pediatrician" />
       </div>
       <div class="form-group">
-        <label>Phone Number</label>
+        <label for="joinPhone">Phone Number</label>
         <input type="tel" id="joinPhone" placeholder="e.g. +213 555 000 111" />
       </div>
 
       <button class="submit-btn" id="joinBtn" disabled>Select an organization first</button>
+
+      <div class="divider">or</div>
+      <button type="button" class="google-btn" id="joinGoogleBtn">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+      <div class="form-hint" style="text-align:center;">Select an organization and fill in your name and specialty first.</div>
     </div>
 
     <!-- OTP VERIFICATION CARD -->
     <div class="form-card" id="otpForm">
       <div class="form-card-title">Enter your verification code</div>
       <div class="otp-email-display" id="otpEmailDisplay"></div>
-      <div class="form-card-sub">We sent a 8-digit code to this email. Enter it below to finish setting up your account.</div>
+      <div class="form-card-sub">We sent an 8-digit code to this email. Enter it below to finish setting up your account.</div>
 
       <div class="error-msg" id="otpError"></div>
 
       <div class="form-group">
-        <label>Verification Code</label>
+        <label for="otpCodeInput">Verification Code</label>
         <input type="text" id="otpCodeInput" class="otp-input" maxlength="8" placeholder="00000000" inputmode="numeric" autocomplete="one-time-code" />
       </div>
 
@@ -250,17 +299,25 @@
       <button class="secondary-btn" id="otpResendBtn">Resend code</button>
     </div>
 
+    <!-- FINISHING (after Google redirect) -->
+    <div class="form-card" id="finishingCard">
+      <div class="form-card-title">Finishing your setup…</div>
+      <div class="form-card-sub" style="margin-bottom:0;">Hang tight, this only takes a moment.</div>
+    </div>
+
     <!-- SUCCESS STATES -->
     <div class="success-box" id="createSuccess">
       <div class="success-icon">&#9989;</div>
       <h3>Organization created!</h3>
       <p id="createSuccessMsg"></p>
+      <a href="staff-login.html">Go to sign in</a>
     </div>
 
     <div class="success-box" id="joinSuccess">
       <div class="success-icon">&#8987;</div>
       <h3>Request sent!</h3>
       <p id="joinSuccessMsg"></p>
+      <a href="staff-login.html">Go to sign in</a>
     </div>
 
     <div class="login-link" id="loginLink">Already have an account? <a href="staff-login.html">Sign in</a></div>
@@ -278,6 +335,7 @@
 
     var selectedOrg = null;
     var pendingSetup = null; // holds form data while we wait for OTP verification
+    var GOOGLE_SETUP_KEY = 'cb_pending_google_setup';
 
     // Tab switching
     document.getElementById('tabCreate').addEventListener('click', function() {
@@ -291,6 +349,17 @@
       document.getElementById('tabCreate').classList.remove('active');
       document.getElementById('joinForm').classList.add('visible');
       document.getElementById('createForm').classList.remove('visible');
+    });
+
+    // Show/hide password toggles
+    Array.prototype.forEach.call(document.querySelectorAll('.pw-toggle'), function(btn) {
+      btn.addEventListener('click', function() {
+        var input = document.getElementById(btn.getAttribute('data-target'));
+        var showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        btn.textContent = showing ? 'Show' : 'Hide';
+        btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+      });
     });
 
     function showError(elId, msg) {
@@ -508,7 +577,7 @@
       });
     });
 
-    // ---------- FINALIZE SETUP AFTER OTP VERIFIED ----------
+    // ---------- FINALIZE SETUP (after OTP or Google) ----------
     function createOrganization(authToken, name, type, phone) {
       var h = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + authToken, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
       return fetch(SUPABASE_URL + '/rest/v1/organizations', {
@@ -554,6 +623,38 @@
       });
     }
 
+    // Shared by the OTP path and the Google path. Hides whichever card is
+    // showing, then shows the matching success box.
+    function finalizeSetup(setup, accessToken, userId) {
+      function hideCards() {
+        document.getElementById('otpForm').classList.remove('visible');
+        document.getElementById('finishingCard').classList.remove('visible');
+        document.getElementById('createForm').classList.remove('visible');
+        document.getElementById('joinForm').classList.remove('visible');
+        document.getElementById('pathTabs').style.display = 'none';
+        document.getElementById('loginLink').style.display = 'none';
+      }
+
+      if (setup.type === 'create_org') {
+        return createOrganization(accessToken, setup.orgName, setup.orgType, setup.orgPhone).then(function(org) {
+          return createStaffRecord(accessToken, userId, org.id, setup.fullName, setup.orgPhone, 'director');
+        }).then(function() {
+          hideCards();
+          document.getElementById('createSuccess').classList.add('visible');
+          document.getElementById('createSuccessMsg').textContent =
+            'Your organization "' + setup.orgName + '" is ready. You can now sign in as the Director.';
+        });
+      } else if (setup.type === 'join_org') {
+        return createJoinRequest(accessToken, userId, setup.orgId, setup.fullName, setup.specialty, setup.phone).then(function() {
+          hideCards();
+          document.getElementById('joinSuccess').classList.add('visible');
+          document.getElementById('joinSuccessMsg').textContent =
+            'Your request to join "' + setup.orgName + '" has been sent. The admin will approve it shortly. You can sign in once approved.';
+        });
+      }
+      return Promise.resolve();
+    }
+
     document.getElementById('otpVerifyBtn').addEventListener('click', function() {
       var code = document.getElementById('otpCodeInput').value.trim();
       var btn = document.getElementById('otpVerifyBtn');
@@ -561,7 +662,7 @@
       hideError('otpError');
 
       if (!code || code.length !== 8) {
-        showError('otpError', 'Please enter the 6-digit code.');
+        showError('otpError', 'Please enter the 8-digit code.');
         return;
       }
       if (!pendingSetup) {
@@ -573,28 +674,7 @@
       btn.textContent = 'Verifying...';
 
       verifyOtp(pendingSetup.email, code).then(function(session) {
-        var accessToken = session.access_token;
-        var userId = session.user.id;
-
-        if (pendingSetup.type === 'create_org') {
-          return createOrganization(accessToken, pendingSetup.orgName, pendingSetup.orgType, pendingSetup.orgPhone).then(function(org) {
-            return createStaffRecord(accessToken, userId, org.id, pendingSetup.fullName, pendingSetup.orgPhone, 'admin');
-          }).then(function() {
-            document.getElementById('otpForm').classList.remove('visible');
-            var successBox = document.getElementById('createSuccess');
-            successBox.classList.add('visible');
-            document.getElementById('createSuccessMsg').textContent =
-              'Your organization "' + pendingSetup.orgName + '" is ready. You can now sign in as the admin.';
-          });
-        } else if (pendingSetup.type === 'join_org') {
-          return createJoinRequest(accessToken, userId, pendingSetup.orgId, pendingSetup.fullName, pendingSetup.specialty, pendingSetup.phone).then(function() {
-            document.getElementById('otpForm').classList.remove('visible');
-            var successBox = document.getElementById('joinSuccess');
-            successBox.classList.add('visible');
-            document.getElementById('joinSuccessMsg').textContent =
-              'Your request to join "' + pendingSetup.orgName + '" has been sent. The admin will approve it shortly. You can sign in once approved.';
-          });
-        }
+        return finalizeSetup(pendingSetup, session.access_token, session.user.id);
       }).catch(function(err) {
         showError('otpError', err.message);
         btn.disabled = false;
@@ -628,6 +708,99 @@
     document.getElementById('otpCodeInput').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') document.getElementById('otpVerifyBtn').click();
     });
+
+    // ---------- GOOGLE SIGN-UP ----------
+    // Saves the form details, sends the user to Google, and finishes setup
+    // when Supabase redirects back here with a session in the URL hash.
+    function startGoogle(setup, errorId) {
+      hideError(errorId);
+      try { sessionStorage.setItem(GOOGLE_SETUP_KEY, JSON.stringify(setup)); }
+      catch (e) { showError(errorId, 'Your browser blocked storage, so Google sign-up cannot continue. Use email and password instead.'); return; }
+      var redirectTo = window.location.origin + window.location.pathname;
+      window.location.href = SUPABASE_URL + '/auth/v1/authorize?provider=google&redirect_to=' + encodeURIComponent(redirectTo);
+    }
+
+    document.getElementById('createGoogleBtn').addEventListener('click', function() {
+      var fullName = document.getElementById('createFullName').value.trim();
+      var orgName = document.getElementById('orgName').value.trim();
+      if (!fullName || !orgName) {
+        showError('createError', 'Enter your full name and organization name before continuing with Google.');
+        return;
+      }
+      startGoogle({
+        type: 'create_org',
+        fullName: fullName,
+        orgName: orgName,
+        orgType: document.getElementById('orgType').value,
+        orgPhone: document.getElementById('orgPhone').value.trim()
+      }, 'createError');
+    });
+
+    document.getElementById('joinGoogleBtn').addEventListener('click', function() {
+      var fullName = document.getElementById('joinFullName').value.trim();
+      var specialty = document.getElementById('joinSpecialty').value.trim();
+      if (!selectedOrg) { showError('joinError', 'Select an organization before continuing with Google.'); return; }
+      if (!fullName || !specialty) {
+        showError('joinError', 'Enter your full name and specialty before continuing with Google.');
+        return;
+      }
+      startGoogle({
+        type: 'join_org',
+        fullName: fullName,
+        specialty: specialty,
+        phone: document.getElementById('joinPhone').value.trim(),
+        orgId: selectedOrg.id,
+        orgName: selectedOrg.name
+      }, 'joinError');
+    });
+
+    function handleGoogleReturn() {
+      var hash = window.location.hash;
+      if (!hash || (hash.indexOf('access_token=') === -1 && hash.indexOf('error_description=') === -1)) return;
+
+      var params = new URLSearchParams(hash.substring(1));
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+
+      var saved = null;
+      try { saved = JSON.parse(sessionStorage.getItem(GOOGLE_SETUP_KEY)); } catch (e) {}
+      try { sessionStorage.removeItem(GOOGLE_SETUP_KEY); } catch (e) {}
+      var errId = (saved && saved.type === 'join_org') ? 'joinError' : 'createError';
+
+      if (saved && saved.type === 'join_org') document.getElementById('tabJoin').click();
+
+      if (params.get('error_description')) {
+        showError(errId, params.get('error_description').replace(/\+/g, ' '));
+        return;
+      }
+      var token = params.get('access_token');
+      if (!token) return;
+      if (!saved) {
+        showError(errId, 'Google sign-in worked, but your form details were lost. Fill in the form and try again.');
+        return;
+      }
+
+      document.getElementById('createForm').classList.remove('visible');
+      document.getElementById('joinForm').classList.remove('visible');
+      document.getElementById('pathTabs').style.display = 'none';
+      document.getElementById('loginLink').style.display = 'none';
+      document.getElementById('finishingCard').classList.add('visible');
+
+      fetch(SUPABASE_URL + '/auth/v1/user', {
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + token }
+      }).then(function(res) {
+        if (!res.ok) throw new Error('Could not read your Google account. Please try again.');
+        return res.json();
+      }).then(function(user) {
+        return finalizeSetup(saved, token, user.id);
+      }).catch(function(err) {
+        document.getElementById('finishingCard').classList.remove('visible');
+        document.getElementById('pathTabs').style.display = '';
+        document.getElementById('loginLink').style.display = '';
+        document.getElementById(saved.type === 'join_org' ? 'joinForm' : 'createForm').classList.add('visible');
+        showError(errId, err.message);
+      });
+    }
+    handleGoogleReturn();
 
     // Hide search results when clicking elsewhere
     document.addEventListener('click', function(e) {
