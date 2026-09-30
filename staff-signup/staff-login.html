@@ -36,8 +36,12 @@
 
     .login-subtitle {
       text-align: center; font-size: 13px; color: var(--muted);
-      margin-bottom: 28px;
+      margin-bottom: 28px; line-height: 1.5;
     }
+
+    .mode { display: none; }
+    .mode.visible { display: block; }
+    .mode-title { font-family: 'DM Serif Display', serif; font-size: 19px; color: var(--text); margin-bottom: 4px; text-align: center; }
 
     .form-group { margin-bottom: 16px; }
     .form-group label {
@@ -53,6 +57,27 @@
     }
     .form-group input:focus { border-color: var(--teal); background: #fff; }
 
+    /* Password show/hide */
+    .pw-wrap { position: relative; }
+    .pw-wrap input { padding-right: 62px; }
+    .pw-toggle {
+      position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; padding: 8px 10px; border-radius: 8px;
+      font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+      color: var(--teal); cursor: pointer;
+    }
+    .pw-toggle:focus-visible, .login-btn:focus-visible, .google-btn:focus-visible, .text-link:focus-visible {
+      outline: 2px solid var(--teal); outline-offset: 2px;
+    }
+
+    .forgot-row { text-align: right; margin: -6px 0 6px; }
+    .text-link {
+      background: none; border: none; padding: 4px 0; cursor: pointer;
+      font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600;
+      color: var(--teal); text-decoration: none;
+    }
+    .text-link:hover { text-decoration: underline; }
+
     .login-btn {
       width: 100%; padding: 14px; border-radius: 10px; border: none;
       background: var(--teal); color: #fff; font-size: 15px; font-weight: 600;
@@ -61,6 +86,21 @@
     }
     .login-btn:hover { background: #086988; }
     .login-btn:disabled { background: var(--muted); cursor: not-allowed; }
+
+    .divider {
+      display: flex; align-items: center; gap: 12px; margin: 18px 0 14px;
+      font-size: 12px; color: var(--muted);
+    }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .google-btn {
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 12px; border-radius: 10px; border: 1.5px solid var(--border);
+      background: var(--white); color: var(--text); font-size: 14px; font-weight: 600;
+      font-family: 'Inter', sans-serif; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    }
+    .google-btn:hover { border-color: var(--teal); background: var(--bg); }
+    .google-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .google-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
 
     .error-msg {
       background: #FEE2E2; border: 1.5px solid #FCA5A5; border-radius: 10px;
@@ -74,69 +114,87 @@
       margin-bottom: 16px; display: none; line-height: 1.5;
     }
 
-    .back-link {
-      display: block; text-align: center; margin-top: 20px;
-      font-size: 13px; color: rgba(255,255,255,0.5);
-      text-decoration: none;
-    }
-    .back-link:hover { color: #fff; }
-
     .signup-link {
-      text-align: center; margin-top: 18px; font-size: 13px; color: var(--muted);
+      text-align: center; margin-top: 18px; font-size: 13px; color: var(--muted); line-height: 1.5;
     }
     .signup-link a { color: var(--teal); font-weight: 600; text-decoration: none; }
+    .center { text-align: center; margin-top: 14px; }
   </style>
 </head>
 <body>
 
   <div class="login-box">
     <div class="logo">Clinic<span>Book</span> <span class="pro-tag">PRO</span></div>
-    <div class="login-subtitle">Staff sign in — for admins, receptionists, and doctors</div>
+    <div class="login-subtitle" id="subtitle">Staff sign in — for directors, admins, receptionists, and doctors</div>
 
     <div class="error-msg" id="errorMsg"></div>
     <div class="info-msg" id="infoMsg"></div>
 
-    <div class="form-group">
-      <label>Email</label>
-      <input type="email" id="emailInput" placeholder="your@email.com" />
-    </div>
-    <div class="form-group">
-      <label>Password</label>
-      <input type="password" id="passwordInput" placeholder="Enter your password" />
+    <!-- SIGN IN -->
+    <div class="mode visible" id="modeSignin">
+      <div class="form-group">
+        <label for="emailInput">Email</label>
+        <input type="email" id="emailInput" placeholder="your@email.com" autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label for="passwordInput">Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="passwordInput" placeholder="Enter your password" autocomplete="current-password" />
+          <button type="button" class="pw-toggle" data-target="passwordInput" aria-label="Show password">Show</button>
+        </div>
+      </div>
+      <div class="forgot-row"><button type="button" class="text-link" id="forgotLink">Forgot password?</button></div>
+
+      <button class="login-btn" id="loginBtn">Sign In</button>
+
+      <div class="divider">or</div>
+      <button type="button" class="google-btn" id="googleBtn">
+        <svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+
+      <div class="signup-link">New here? <a href="signup.html">Set up your clinic</a><br/>Joining a clinic? Use the invite link your director sent you.</div>
     </div>
 
-    <button class="login-btn" id="loginBtn">Sign In</button>
+    <!-- FORGOT PASSWORD -->
+    <div class="mode" id="modeForgot">
+      <div class="mode-title">Reset your password</div>
+      <div class="login-subtitle" style="margin-bottom:20px;">Enter your email and we'll send you a link to choose a new password.</div>
+      <div class="form-group">
+        <label for="forgotEmail">Email</label>
+        <input type="email" id="forgotEmail" placeholder="your@email.com" autocomplete="email" />
+      </div>
+      <button class="login-btn" id="forgotBtn">Send reset link</button>
+      <div class="center"><button type="button" class="text-link" id="forgotBack">Back to sign in</button></div>
+    </div>
 
-    <div class="signup-link">New here? <a href="signup.html">Set up your clinic</a></div>
+    <!-- SET NEW PASSWORD (opened from the emailed link) -->
+    <div class="mode" id="modeReset">
+      <div class="mode-title">Choose a new password</div>
+      <div class="login-subtitle" style="margin-bottom:20px;">Use at least 6 characters.</div>
+      <div class="form-group">
+        <label for="newPassword">New password</label>
+        <div class="pw-wrap">
+          <input type="password" id="newPassword" placeholder="New password" autocomplete="new-password" />
+          <button type="button" class="pw-toggle" data-target="newPassword" aria-label="Show password">Show</button>
+        </div>
+      </div>
+      <button class="login-btn" id="resetBtn">Save new password</button>
+    </div>
   </div>
-
-  <a class="back-link" href="index.html">&#8592; Back to patient portal</a>
 
   <script src="session.js"></script>
   <script>
     // This page manages its own session lifecycle (it's what CREATES the
     // session), so it intentionally does not call CB.requireSession() —
     // that would just bounce back here. It reuses CB's constants and
-    // CB.safeJson so the anon key and error-parsing logic live in one
+    // CB.dashboardUrlForRole so the anon key and role routing live in one
     // place instead of being copy-pasted per page.
     var SUPABASE_URL = CB.SUPABASE_URL;
     var SUPABASE_ANON_KEY = CB.SUPABASE_ANON_KEY;
+    var recoveryToken = null;
 
-    // If already logged in, try to redirect straight to dashboard.
-    // (Supabase's token response — stored here in full — already includes
-    // refresh_token; session.js's CB.refreshSession() is what uses it on
-    // every other page once this initial token eventually expires.)
-    var stored = localStorage.getItem('clinicbook_pro_session');
-    if (stored) {
-      try {
-        var storedSession = JSON.parse(stored);
-        if (storedSession && storedSession.access_token) {
-          redirectToDashboard(storedSession.access_token, storedSession.user.id);
-        }
-      } catch(e) {
-        localStorage.removeItem('clinicbook_pro_session');
-      }
-    }
+    function pageUrl() { return window.location.origin + window.location.pathname; }
 
     function showError(msg) {
       var el = document.getElementById('errorMsg');
@@ -154,6 +212,24 @@
       document.getElementById('errorMsg').style.display = 'none';
       document.getElementById('infoMsg').style.display = 'none';
     }
+
+    function showMode(name) {
+      ['modeSignin', 'modeForgot', 'modeReset'].forEach(function(id) {
+        document.getElementById(id).classList.toggle('visible', id === name);
+      });
+      document.getElementById('subtitle').style.display = (name === 'modeSignin') ? '' : 'none';
+    }
+
+    // Show/hide password toggles
+    Array.prototype.forEach.call(document.querySelectorAll('.pw-toggle'), function(btn) {
+      btn.addEventListener('click', function() {
+        var input = document.getElementById(btn.getAttribute('data-target'));
+        var showing = input.type === 'text';
+        input.type = showing ? 'password' : 'text';
+        btn.textContent = showing ? 'Show' : 'Hide';
+        btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+      });
+    });
 
     function fetchMyStaffRecord(accessToken, userId) {
       return fetch(SUPABASE_URL + '/rest/v1/staff?user_id=eq.' + userId + '&select=id,role,org_id,is_active', {
@@ -185,7 +261,7 @@
           var staff = staffRows[0];
           if (!staff.is_active) {
             localStorage.removeItem('clinicbook_pro_session');
-            showError('Your account has been deactivated. Please contact your organization admin.');
+            showError('Your account has been deactivated. Please contact your organization director.');
             return;
           }
           window.location.href = CB.dashboardUrlForRole(staff.role);
@@ -214,6 +290,7 @@
       });
     }
 
+    // ---------- EMAIL + PASSWORD SIGN IN ----------
     function login() {
       var email = document.getElementById('emailInput').value.trim();
       var password = document.getElementById('passwordInput').value;
@@ -259,6 +336,172 @@
     document.getElementById('passwordInput').addEventListener('keydown', function(e) {
       if (e.key === 'Enter') login();
     });
+
+    // ---------- GOOGLE SIGN IN ----------
+    document.getElementById('googleBtn').addEventListener('click', function() {
+      hideMessages();
+      window.location.href = SUPABASE_URL + '/auth/v1/authorize?provider=google&redirect_to=' + encodeURIComponent(pageUrl());
+    });
+
+    // ---------- FORGOT PASSWORD ----------
+    document.getElementById('forgotLink').addEventListener('click', function() {
+      hideMessages();
+      document.getElementById('forgotEmail').value = document.getElementById('emailInput').value.trim();
+      showMode('modeForgot');
+      document.getElementById('forgotEmail').focus();
+    });
+    document.getElementById('forgotBack').addEventListener('click', function() {
+      hideMessages();
+      showMode('modeSignin');
+    });
+
+    function sendReset() {
+      var email = document.getElementById('forgotEmail').value.trim();
+      var btn = document.getElementById('forgotBtn');
+      if (!email) { showError('Please enter your email.'); return; }
+
+      hideMessages();
+      btn.disabled = true;
+      btn.textContent = 'Sending...';
+
+      fetch(SUPABASE_URL + '/auth/v1/recover?redirect_to=' + encodeURIComponent(pageUrl()), {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email })
+      }).then(function(res) {
+        return res.text().then(function(t) {
+          var data = {};
+          try { data = t ? JSON.parse(t) : {}; } catch(e) { data = { msg: t }; }
+          if (!res.ok) throw new Error(data.msg || data.error_description || data.message || 'Could not send the reset link. Please try again.');
+        });
+      }).then(function() {
+        showInfo('If an account exists for ' + email + ', a reset link is on its way. Check your inbox and spam folder.');
+      }).catch(function(err) {
+        showError(err.message);
+      }).finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Send reset link';
+      });
+    }
+    document.getElementById('forgotBtn').addEventListener('click', sendReset);
+    document.getElementById('forgotEmail').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') sendReset();
+    });
+
+    // ---------- SET NEW PASSWORD (from emailed link) ----------
+    function saveNewPassword() {
+      var pw = document.getElementById('newPassword').value;
+      var btn = document.getElementById('resetBtn');
+      if (pw.length < 6) { showError('Password must be at least 6 characters.'); return; }
+      if (!recoveryToken) { showError('This reset link is no longer valid. Request a new one.'); return; }
+
+      hideMessages();
+      btn.disabled = true;
+      btn.textContent = 'Saving...';
+
+      fetch(SUPABASE_URL + '/auth/v1/user', {
+        method: 'PUT',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + recoveryToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ password: pw })
+      }).then(function(res) {
+        return res.text().then(function(t) {
+          var data = {};
+          try { data = t ? JSON.parse(t) : {}; } catch(e) { data = { msg: t }; }
+          if (!res.ok) throw new Error(data.msg || data.error_description || data.message || 'Could not save your new password.');
+        });
+      }).then(function() {
+        recoveryToken = null;
+        document.getElementById('newPassword').value = '';
+        showMode('modeSignin');
+        showInfo('Password updated. Sign in with your new password.');
+      }).catch(function(err) {
+        showError(err.message);
+      }).finally(function() {
+        btn.disabled = false;
+        btn.textContent = 'Save new password';
+      });
+    }
+    document.getElementById('resetBtn').addEventListener('click', saveNewPassword);
+    document.getElementById('newPassword').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') saveNewPassword();
+    });
+
+    // ---------- HANDLE REDIRECTS BACK FROM SUPABASE (Google + reset link) ----------
+    // Returns true if the URL hash carried an auth result, so the stored-
+    // session auto-redirect below doesn't race with it.
+    function handleAuthHash() {
+      var hash = window.location.hash;
+      if (!hash || hash.length < 2) return false;
+
+      var params = new URLSearchParams(hash.substring(1));
+      var token = params.get('access_token');
+      var err = params.get('error_description');
+      if (!token && !err) return false;
+
+      // Remove tokens from the address bar and browser history.
+      history.replaceState(null, '', window.location.pathname + window.location.search);
+
+      if (err) {
+        showError(err);
+        return true;
+      }
+
+      // Password-reset link: show the new-password form.
+      if (params.get('type') === 'recovery') {
+        recoveryToken = token;
+        showMode('modeReset');
+        document.getElementById('newPassword').focus();
+        return true;
+      }
+
+      // Google sign-in: build the same session object the password flow
+      // stores (token response + user), so session.js and every dashboard
+      // treat it identically and CB.refreshSession() works.
+      fetch(SUPABASE_URL + '/auth/v1/user', {
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + token }
+      }).then(function(res) {
+        if (!res.ok) throw new Error('Could not read your Google account. Please try again.');
+        return res.json();
+      }).then(function(user) {
+        var session = {
+          access_token: token,
+          token_type: params.get('token_type') || 'bearer',
+          expires_in: parseInt(params.get('expires_in'), 10) || 3600,
+          expires_at: parseInt(params.get('expires_at'), 10) || Math.floor(Date.now() / 1000) + 3600,
+          refresh_token: params.get('refresh_token'),
+          user: user
+        };
+        localStorage.setItem('clinicbook_pro_session', JSON.stringify(session));
+        redirectToDashboard(session.access_token, user.id);
+      }).catch(function(e) {
+        showError(e.message);
+      });
+      return true;
+    }
+
+    var handledHash = handleAuthHash();
+
+    // If already logged in, try to redirect straight to dashboard.
+    // (Supabase's token response — stored here in full — already includes
+    // refresh_token; session.js's CB.refreshSession() is what uses it on
+    // every other page once this initial token eventually expires.)
+    if (!handledHash) {
+      var stored = localStorage.getItem('clinicbook_pro_session');
+      if (stored) {
+        try {
+          var storedSession = JSON.parse(stored);
+          if (storedSession && storedSession.access_token) {
+            redirectToDashboard(storedSession.access_token, storedSession.user.id);
+          }
+        } catch(e) {
+          localStorage.removeItem('clinicbook_pro_session');
+        }
+      }
+    }
   </script>
 </body>
 </html>
