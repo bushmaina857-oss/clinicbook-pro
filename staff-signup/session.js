@@ -121,14 +121,15 @@ CB.safeJson = function(res) {
 
 // ---------------------------------------------------------------------
 // SHARED ROLE-AWARE BOTTOM NAV
-// Same tab set/order everywhere: Dashboard, Front Desk, Activity, and
-// Patient View (admin only). Built once here so it can't drift page-to-page.
+// Same tab set/order everywhere: Dashboard, Front Desk, Activity.
+// (Patient View was removed: the patient portal lives on a separate
+// domain, so staff pages no longer link to it.) Built once here so it
+// can't drift page-to-page.
 // ---------------------------------------------------------------------
 var NAV_ICONS = {
   dashboard: "<rect x='3' y='3' width='7' height='7' rx='1'/><rect x='14' y='3' width='7' height='7' rx='1'/><rect x='3' y='14' width='7' height='7' rx='1'/><rect x='14' y='14' width='7' height='7' rx='1'/>",
   frontdesk: "<path d='M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z'/><path d='M9 22V12h6v10'/>",
-  activity: "<path d='M3 3v18h18'/><path d='M18 17V9'/><path d='M13 17V5'/><path d='M8 17v-3'/>",
-  patientview: "<path d='M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z'/><path d='M9 21V12h6v9'/>"
+  activity: "<path d='M3 3v18h18'/><path d='M18 17V9'/><path d='M13 17V5'/><path d='M8 17v-3'/>"
 };
 
 function buildNavItem(key, href, label, active) {
@@ -165,8 +166,9 @@ CB.setNavBadge = function(key, count) {
   }
 };
 
+// Directors (the top role, created at signup) share the admin dashboard.
 CB.dashboardUrlForRole = function(role) {
-  if (role === 'admin') return 'admin-dashboard.html';
+  if (role === 'director' || role === 'admin') return 'admin-dashboard.html';
   if (role === 'doctor') return 'doctor-dashboard.html';
   return 'receptionist-dashboard.html';
 };
@@ -178,9 +180,6 @@ CB.renderBottomNav = function(role, activeKey) {
   nav.appendChild(buildNavItem('dashboard', CB.dashboardUrlForRole(role), 'Dashboard', activeKey === 'dashboard'));
   nav.appendChild(buildNavItem('frontdesk', 'front-desk.html', 'Front Desk', activeKey === 'frontdesk'));
   nav.appendChild(buildNavItem('activity', 'daily-activity.html', 'Activity', activeKey === 'activity'));
-  if (role === 'admin') {
-    nav.appendChild(buildNavItem('patientview', 'index.html', 'Patient View', activeKey === 'patientview'));
-  }
 };
 
 CB.showDenied = function(msg, dashboardUrl) {
