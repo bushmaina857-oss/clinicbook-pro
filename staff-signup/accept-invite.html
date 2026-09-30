@@ -4,26 +4,35 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>ClinicBook Pro — Accept Invite</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #FAF9F5; color: #1F2937; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
-    .card { width: 100%; max-width: 380px; background: #fff; border: 1px solid #EEEDE9; border-radius: 20px; padding: 40px 32px; box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 16px 40px rgba(31,29,23,.08); display: flex; flex-direction: column; gap: 20px; }
-    .badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 14px; border-radius: 999px; background: #ECFDF5; color: #047857; font-size: 13px; font-weight: 700; text-transform: capitalize; }
-    .label { display: block; font-size: 13px; font-weight: 600; color: #44403C; margin-bottom: 6px; }
-    .input { width: 100%; padding: 12px 14px; border: 1px solid #D6D3CE; border-radius: 10px; font-size: 15px; background: #fff; }
-    .input:focus { outline: none; border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,.12); }
-    .input:disabled { background: #F5F4F1; color: #78716C; }
-    .btn-primary { width: 100%; padding: 13px; border-radius: 10px; background: #059669; color: #fff; font-size: 15px; font-weight: 600; border: none; cursor: pointer; box-shadow: 0 2px 8px rgba(5,150,105,.28); text-align: center; text-decoration: none; display: block; }
-    .btn-primary:disabled { background: #A8A29E; cursor: not-allowed; box-shadow: none; }
-    .btn-primary:focus-visible, .eye-btn:focus-visible { outline: 2px solid #059669; outline-offset: 2px; }
+    :root {
+      --bg: #F7F9FB; --white: #fff; --navy: #0D1B2A;
+      --teal: #0A7EA4; --teal-light: #E6F4F9;
+      --text: #1A2636; --muted: #6B7A8D; --border: #DDE3EA;
+    }
+    body { font-family: 'Inter', sans-serif; background: var(--navy); color: var(--text); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .card { width: 100%; max-width: 400px; background: var(--white); border-radius: 20px; padding: 32px 28px; box-shadow: 0 8px 40px rgba(0,0,0,0.25); display: flex; flex-direction: column; gap: 18px; }
+    .badge { display: inline-flex; align-items: center; padding: 5px 14px; border-radius: 999px; background: var(--teal-light); color: var(--teal); font-size: 13px; font-weight: 600; text-transform: capitalize; }
+    .label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .input { width: 100%; padding: 13px 14px; border: 1.5px solid var(--border); border-radius: 10px; font-size: 14px; font-family: 'Inter', sans-serif; color: var(--text); background: var(--bg); outline: none; transition: border-color 0.15s; }
+    .input:focus { border-color: var(--teal); background: #fff; }
+    .input:disabled { background: #EEF1F5; color: var(--muted); }
+    .btn-primary { width: 100%; padding: 14px; border-radius: 10px; background: var(--teal); color: #fff; font-size: 15px; font-weight: 600; font-family: 'Inter', sans-serif; border: none; cursor: pointer; text-align: center; text-decoration: none; display: block; transition: background 0.15s; }
+    .btn-primary:hover { background: #086988; }
+    .btn-primary:disabled { background: var(--muted); cursor: not-allowed; }
+    .btn-primary:focus-visible, .eye-btn:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
     .field-wrap { position: relative; }
-    .eye-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 6px; }
-    .error-box { background: #FEF2F2; border: 1px solid #FCA5A5; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #991B1B; display: none; }
+    .eye-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 8px 10px; border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; color: var(--teal); }
+    .error-box { background: #FEE2E2; border: 1.5px solid #FCA5A5; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #991B1B; display: none; }
     .center { text-align: center; }
-    .muted { font-size: 13px; color: #78716C; }
-    .title { font-size: 18px; font-weight: 700; }
+    .muted { font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .title { font-family: 'DM Serif Display', serif; font-size: 21px; color: var(--text); }
     .stack { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .logo { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--navy); letter-spacing: -0.5px; text-align: center; }
+    .logo span { color: var(--teal); }
+    .logo .pro-tag { color: #9CA3AF; font-size: 13px; font-family: 'Inter', sans-serif; }
   </style>
 </head>
 <body>
@@ -32,37 +41,32 @@
     <div class="center muted" id="loadingState">Checking your invite…</div>
   </div>
 
+  <!-- session.js supplies the Supabase URL/key and role routing. It does not
+       require a session just by being loaded, so it's safe on this page. -->
+  <script src="session.js"></script>
   <script>
-    // Replace with your project values (or read them from session.js if it exposes them without a session).
-    var SUPABASE_URL = 'https://YOUR-PROJECT.supabase.co';
-    var SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
-    var LOGIN_PAGE = 'login.html'; // set to your real sign-in page
-
-    var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    var SUPABASE_URL = CB.SUPABASE_URL;
+    var SUPABASE_ANON_KEY = CB.SUPABASE_ANON_KEY;
+    var LOGIN_PAGE = 'staff-login.html';
 
     var token = new URLSearchParams(window.location.search).get('token');
     var card = document.getElementById('card');
     var invite = null;
 
-    var dashboardByRole = {
-      director: 'admin-dashboard.html',
-      admin: 'admin-dashboard.html',
-      doctor: 'doctor-dashboard.html',
-      receptionist: 'receptionist-dashboard.html?welcome=1'
-    };
-
-    var EYE = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#78716C" stroke-width="2"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+    var LOGO = '<div class="logo">Clinic<span>Book</span> <span class="pro-tag">PRO</span></div>';
 
     function showError(msg) {
       card.innerHTML =
+        LOGO +
         '<div class="center title">This invite link isn\'t valid</div>' +
         '<div class="error-box" id="fatalMsg" style="display:block"></div>' +
-        '<div class="center muted">Ask your organization\'s admin to send a new invite.</div>';
+        '<div class="center muted">Ask your organization\'s director to send a new invite.</div>';
       document.getElementById('fatalMsg').textContent = msg;
     }
 
     function renderStep1() {
       card.innerHTML =
+        LOGO +
         '<div class="center stack">' +
         '<div class="title">You\'ve been invited</div>' +
         '<div class="muted"><span id="orgName"></span> has invited you to join as</div>' +
@@ -81,12 +85,13 @@
 
     function passwordField(id, label) {
       return '<div><label class="label" for="' + id + '">' + label + '</label>' +
-        '<div class="field-wrap"><input class="input" id="' + id + '" type="password" placeholder="••••••••" autocomplete="new-password" style="padding-right:44px">' +
-        '<button class="eye-btn" type="button" data-for="' + id + '" aria-label="Show or hide password">' + EYE + '</button></div></div>';
+        '<div class="field-wrap"><input class="input" id="' + id + '" type="password" placeholder="••••••••" autocomplete="new-password" style="padding-right:62px">' +
+        '<button class="eye-btn" type="button" data-for="' + id + '" aria-label="Show password">Show</button></div></div>';
     }
 
     function renderStep2() {
       card.innerHTML =
+        LOGO +
         '<div class="center title">Set up your account</div>' +
         '<div><label class="label" for="fullName">Full name</label>' +
         '<input class="input" id="fullName" type="text" placeholder="Jane Mwikali" autocomplete="name"></div>' +
@@ -98,10 +103,32 @@
       card.querySelectorAll('.eye-btn').forEach(function(b) {
         b.addEventListener('click', function() {
           var input = document.getElementById(b.getAttribute('data-for'));
-          input.type = input.type === 'password' ? 'text' : 'password';
+          var showing = input.type === 'text';
+          input.type = showing ? 'password' : 'text';
+          b.textContent = showing ? 'Show' : 'Hide';
+          b.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
         });
       });
       document.getElementById('createBtn').addEventListener('click', submitAccount);
+    }
+
+    // Signs in with the password just set and stores the result in the same
+    // localStorage key and shape staff-login.html uses, so session.js and
+    // every dashboard recognize the session (and can refresh it).
+    function signInAndStore(email, password) {
+      return fetch(SUPABASE_URL + '/auth/v1/token?grant_type=password', {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email, password: password })
+      }).then(function(res) {
+        return res.text().then(function(t) {
+          var data = {};
+          try { data = t ? JSON.parse(t) : {}; } catch (e) {}
+          if (!res.ok || !data.access_token) throw new Error('SIGNIN_FAILED');
+          localStorage.setItem('clinicbook_pro_session', JSON.stringify(data));
+          return data;
+        });
+      });
     }
 
     function submitAccount() {
@@ -134,15 +161,16 @@
         if (!result.ok) throw new Error(result.data.error || 'Something went wrong.');
         accountCreated = true;
         role = result.data.role || invite.role;
-        return sb.auth.signInWithPassword({ email: invite.email, password: p1 });
-      }).then(function(signIn) {
-        // supabase-js returns { error } instead of throwing
-        if (signIn.error) throw new Error('SIGNIN_FAILED');
-        window.location.href = dashboardByRole[role] || 'admin-dashboard.html';
+        return signInAndStore(invite.email, p1);
+      }).then(function() {
+        var dest = CB.dashboardUrlForRole(role);
+        if (role === 'receptionist') dest += '?welcome=1';
+        window.location.href = dest;
       }).catch(function(err) {
         if (accountCreated) {
           // The invite is used up, so retrying here would fail. Send them to sign in instead.
           card.innerHTML =
+            LOGO +
             '<div class="center title">Your account is ready</div>' +
             '<div class="center muted">We couldn\'t sign you in automatically. Sign in with your email and the password you just set.</div>' +
             '<a class="btn-primary" href="' + LOGIN_PAGE + '">Go to sign in</a>';
@@ -154,12 +182,21 @@
       });
     }
 
+    // Look up the invite with a direct RPC call (same anon-key pattern as the
+    // rest of the app), so this page no longer needs the supabase-js SDK.
     if (!token) {
       showError('No invite token was found in this link.');
     } else {
-      sb.rpc('get_invite_by_token', { p_token: token }).then(function(result) {
-        if (result.error || !result.data || !result.data.length) { showError('This invite could not be found.'); return; }
-        invite = result.data[0];
+      fetch(SUPABASE_URL + '/rest/v1/rpc/get_invite_by_token', {
+        method: 'POST',
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ p_token: token })
+      }).then(function(res) {
+        if (!res.ok) throw new Error('lookup_failed');
+        return res.json();
+      }).then(function(rows) {
+        if (!rows || !rows.length) { showError('This invite could not be found.'); return; }
+        invite = rows[0];
         if (invite.status !== 'pending') { showError('This invite has already been used or revoked.'); return; }
         if (invite.expires_at && new Date(invite.expires_at) < new Date()) { showError('This invite has expired.'); return; }
         renderStep1();
