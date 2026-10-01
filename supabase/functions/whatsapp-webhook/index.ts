@@ -1,7 +1,29 @@
 // supabase/functions/whatsapp-webhook/index.ts
 //
-// ClinicBook Pro — WhatsApp AI Receptionist (v4.7)
-// Base: v4.6 (send-failure logging) — unchanged elsewhere except as noted.
+// ClinicBook Pro — WhatsApp AI Receptionist (v4.8)
+// Base: v4.7 (per-org outbound phone_number_id) — unchanged elsewhere except as noted.
+//
+// v4.8: the receptionist can now answer questions about the clinic's
+// services, prices, opening hours, address and directions straight from
+// the database instead of guessing. Changes:
+//   1. New tool get_clinic_info (topic: services | location | hours | all).
+//      - location/hours/all read organizations: name, type, address,
+//        phone, opening_hours, maps_url.
+//      - services/all read the new services table (org_id, name,
+//        description, price, currency, duration_minutes, is_active,
+//        sort_order), active rows only.
+//      - Always scoped by orgId, which comes from the phone_number_id Meta
+//        reports in the payload — never from patient or model input — so
+//        one clinic's patients can never see another clinic's data.
+//      - Empty/missing data is reported back explicitly (services_note,
+//        null fields) so the model follows the NEVER GUESS rule instead of
+//        inventing prices or hours.
+//   2. System prompt: the old "answer common questions about hours,
+//      location" line is replaced with an instruction to use
+//      get_clinic_info / list_doctors only, share maps_url with location
+//      answers, and escalate when data is missing.
+// Requires the v4.8 SQL migration (organizations.opening_hours,
+// organizations.maps_url, services table) to be run BEFORE deploying.
 //
 // v4.4: book_appointment and join_waitlist were storing
 // input.patient_phone — a value Claude fills in from the CONVERSATION
@@ -130,7 +152,14 @@ confirmed on the clinic's behalf, the same way a human receptionist would confir
 a walk-in or phone booking — not as a tentative request awaiting doctor approval.
 
 YOU SHOULD:
-- Answer common questions about the clinic (hours, location, doctors available).
+- Answer questions about the clinic's services, prices, opening hours, address and
+  directions ONLY by calling get_clinic_info. Answer questions about which doctors
+  are available with list_doctors. If get_clinic_info returns a field as null or an
+  empty list, tell the patient you don't have that detail to hand, offer to have the
+  front desk follow up, and call escalate_to_staff if the patient wants that. Never
+  invent prices, services, hours or addresses. When sharing the location, include
+  the maps_url link if there is one. If a service has no price on file, say the
+  clinic will confirm the price.
 - Check doctor availability using the check_availability tool.
 - Suggest open appointment slots.
 - Book appointments using the book_appointment tool.
@@ -215,6 +244,23 @@ const TOOLS = [
       properties: {
         specialty: { type: "string", description: "e.g. 'dentist', optional" },
       },
+    },
+  },
+  {
+    name: "get_clinic_info",
+    description:
+      "Look up this clinic's services and prices, opening hours, address, phone number and map link. Use whenever the patient asks what the clinic offers, how much something costs, when it is open, or where it is. Never answer these from memory.",
+    input_schema: {
+      type: "object",
+      properties: {
+        topic: {
+          type: "string",
+          enum: ["services", "location", "hours", "all"],
+          description:
+            "'location' and 'hours' both return the clinic details (address, phone, opening hours, map link); 'services' returns the service list with prices; 'all' returns everything",
+        },
+      },
+      required: ["topic"],
     },
   },
   {
@@ -407,6 +453,45 @@ async function executeTool(name: string, input: any, orgId: string, patientPhone
       if (input.specialty) query = query.ilike("specialty", `%${input.specialty}%`);
       const { data } = await query;
       result = data || [];
+      break;
+    }
+
+    // v4.8: clinic info (services, prices, hours, address, map link).
+    // Always scoped by orgId, which comes from the verified phone_number_id
+    // on the webhook payload — never from anything the patient or Claude
+    // supplies — so one clinic can never read another clinic's data.
+    case "get_clinic_info": {
+      const topic = input?.topic || "all";
+      const out: Record<string, unknown> = {};
+
+      if (topic === "location" || topic === "hours" || topic === "all") {
+        const { data: clinic, error } = await supabase
+          .from("organizations")
+          .select("name, type, address, phone, opening_hours, maps_url")
+          .eq("id", orgId)
+          .single();
+
+        if (error) console.error("get_clinic_info clinic query failed:", error.message);
+        out.clinic = clinic || null;
+      }
+
+      if (topic === "services" || topic === "all") {
+        const { data: services, error } = await supabase
+          .from("services")
+          .select("name, description, price, currency, duration_minutes")
+          .eq("org_id", orgId)
+          .eq("is_active", true)
+          .order("sort_order", { ascending: true })
+          .order("name", { ascending: true });
+
+        if (error) console.error("get_clinic_info services query failed:", error.message);
+        out.services = services || [];
+        if (!services || services.length === 0) {
+          out.services_note = "No services on file for this clinic. Do not guess.";
+        }
+      }
+
+      result = out;
       break;
     }
 
